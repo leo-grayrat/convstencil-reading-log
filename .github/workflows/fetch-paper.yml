@@ -3,8 +3,6 @@ name: Fetch paper
 on:
   push:
     branches: [main]
-    paths:
-      - '.github/workflows/fetch-paper.yml'
   workflow_dispatch:
 
 permissions:
