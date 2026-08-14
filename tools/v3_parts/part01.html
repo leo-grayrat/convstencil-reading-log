@@ -1,0 +1,65 @@
+.slot{height:48px;border:2px solid #b9c7d8;background:#edf4ff;border-radius:8px;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:11px;color:#335278;transition:opacity .5s,background .5s,border-color .5s,transform .5s}
+.slot.wasted{opacity:.24;background:#f4f4f4;border-style:dashed;transform:scale(.94);color:#8b929b}
+.slot b{font-size:12px}
+.legend{display:flex;gap:12px;flex-wrap:wrap;margin-top:9px;font-size:12px;color:var(--muted)}
+.legend i{display:inline-block;width:14px;height:14px;border-radius:3px;vertical-align:-2px;margin-right:4px;border:1px solid #bbc6d4}
+.from-row0{background:var(--orange-soft)!important;border-color:#e1a45c!important}.from-row7{background:var(--cyan-soft)!important;border-color:#68b4bf!important}.nonredundant-a{background:#e6f5ea!important;border-color:#77a982!important}.nonredundant-b{background:#fff2df!important;border-color:#d9a45f!important}.redundant-row{opacity:.86}
+.fig2-layout{display:grid;grid-template-columns:minmax(350px,.9fr) minmax(660px,1.8fr);gap:14px;align-items:start}
+@media(max-width:1200px){.fig2-layout{grid-template-columns:1fr}}
+.memory-band{border-left:5px solid #9badc2;padding-left:11px;margin-bottom:13px}.memory-band.global{border-color:#6b7e96}.memory-band.shared{border-color:#d9851f}.memory-band.registers{border-color:#2395a6}
+.band-label{font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;color:#526174;margin-bottom:6px}
+.split-note{display:flex;gap:10px;flex-wrap:wrap;margin-top:8px;font-size:12px}.split-note span{padding:4px 8px;border-radius:999px}.split-note .a{background:var(--orange-soft);color:#805018}.split-note .b{background:var(--cyan-soft);color:#236570}
+.stencil2row-zone{opacity:.12;max-height:220px;overflow:hidden;transition:opacity .55s,max-height .6s ease}.stencil2row-zone.visible{opacity:1;max-height:900px}
+.ab-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}.ab-grid .matrix td{min-width:20px;height:21px;font-size:9px}
+@media(max-width:1000px){.ab-grid{grid-template-columns:1fr}}
+.dual{display:flex;flex-direction:column;gap:8px;min-height:150px}.dual-line{display:grid;grid-template-columns:minmax(105px,1fr) auto minmax(85px,.8fr) auto minmax(105px,1fr);gap:7px;align-items:center}.dual-merge{display:flex;justify-content:center;align-items:center;gap:8px}.tile-chip,.weight-chip,.result-chip,.partial-chip{border-radius:10px;border:1px solid var(--line);padding:10px;text-align:center;background:#fff}.tile-chip.a{background:#fff0d8}.tile-chip.b{background:#dff6f8}.partial-chip.a{background:#fff7ea}.partial-chip.b{background:#edfafa}.result-chip{background:#e6f5ea}.math-op{font-size:26px;color:#657287}
+.dual.animate .tile-chip.a{animation:pushA .9s ease}.dual.animate .tile-chip.b{animation:pushB .9s ease}.dual.animate .result-chip{animation:pulse .9s .45s ease}
+@keyframes pushA{0%{transform:translateX(-35px);opacity:.25}100%{transform:none;opacity:1}}@keyframes pushB{0%{transform:translateX(35px);opacity:.25}100%{transform:none;opacity:1}}@keyframes pulse{50%{transform:scale(1.06);box-shadow:0 0 0 7px rgba(67,141,90,.12)}}
+.reference{margin-top:12px}.reference summary{cursor:pointer;color:#41516a;font-weight:700;font-size:13px}.reference img{max-width:100%;display:block;margin-top:8px;border:1px solid var(--line);border-radius:8px;background:white}
+#trace-svg{position:fixed;inset:0;width:100vw;height:100vh;pointer-events:none;z-index:80;overflow:visible}.trace-line{stroke:#cc8b31;stroke-width:2;fill:none;stroke-linecap:round;opacity:.8}.trace-line.alt{stroke:#2b9aad}
+.fly-token{position:fixed;z-index:90;pointer-events:none;border:1px solid #d3973d;background:#fff1c7;border-radius:4px;display:flex;align-items:center;justify-content:center;font:11px ui-monospace,SFMono-Regular,Menlo,monospace;box-shadow:0 3px 10px rgba(27,36,50,.18)}
+.count-row{display:flex;gap:12px;flex-wrap:wrap;margin-top:8px}.count{background:#f2f5f9;border-radius:8px;padding:6px 9px;font-size:12px;color:#536074}
+.paper-note{font-size:12px;color:#697486;margin-top:14px;border-top:1px solid var(--line);padding-top:10px}
+</style>
+</head>
+<body>
+<svg id="trace-svg"></svg>
+<div class="wrap">
+  <h1>ConvStencil Figure 1 / Figure 2 动态解释</h1>
+  <p class="lead">这里不按“上一页 / 下一页”讲解。页面中的格子保持在同一张图里：窗口会滑动，数据会移动到目标矩阵，鼠标可以追踪来源；卷积切换成 stencil 时，消失的通道和 kernel 会同步淡出。</p>
+  <div class="tabs">
+    <button class="tab active" data-tab="fig1">Figure 1：卷积 → 矩阵乘法 → stencil</button>
+    <button class="tab" data-tab="fig2">Figure 2：im2row 冗余 → stencil2row</button>
+  </div>
+
+  <section class="panel active" id="fig1-panel">
+    <div class="toolbar">
+      <div class="group"><b>计算类型</b><button class="btn active" id="fig1-mode-conv">Convolution</button><button class="btn warn" id="fig1-mode-stencil">Stencil</button></div>
+      <div class="group"><span class="slider-label">窗口位置</span><button class="btn" data-win="0">左上</button><button class="btn" data-win="1">右上</button><button class="btn" data-win="2">左下</button><button class="btn" data-win="3">右下</button></div>
+      <div class="group"><button class="btn primary" id="fig1-demo-window">演示：窗口 → Input Matrix</button><button class="btn" id="fig1-demo-kernel">演示：Kernel → Kernel Matrix</button></div>
+    </div>
+
+    <div class="board" id="fig1-board">
+      <div class="board-title">Figure 1 的同一条数据流</div>
+      <div class="grid-layout">
+        <div class="box">
+          <h3>3-channel Input</h3>
+          <div class="channel-stack" id="fig1-input"></div>
+          <div class="fact">一个空间窗口会同时从所有输入通道取数。切换为 stencil 后，只保留第 1 个通道。</div>
+        </div>
+
+        <div class="box">
+          <h3>Input Matrix（im2row）</h3>
+          <div class="matrix-wrap" id="fig1-im2row"></div>
+          <div class="hint">悬停任意格子：原输入中的来源会同时高亮并连线。</div>
+          <h4>Output Matrix</h4>
+          <div class="matrix-wrap" id="fig1-output"></div>
+          <div class="hint">点击任意输出格：对应的 Input Matrix 行和 Kernel Matrix 列同时高亮。</div>
+        </div>
+
+        <div class="box">
+          <h3>Convolution Kernels</h3>
+          <div class="group" style="margin-bottom:7px"><span class="slider-label">当前查看</span><select id="fig1-kernel-select" class="btn"></select></div>
+          <div id="fig1-kernel-source"></div>
+          <h4>Kernel Matrix</h4>
+          <div class="matrix-wrap" id="fig1-kernel-matrix"></div>
