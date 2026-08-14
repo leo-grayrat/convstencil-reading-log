@@ -1,0 +1,65 @@
+const traceSvg = $('#trace-svg');
+function clearTrace(){ traceSvg.innerHTML=''; $$('.source-match,.anchor-match,.target-match').forEach(e=>e.classList.remove('source-match','anchor-match','target-match')); }
+function lineBetween(a,b,alt=false){
+  if(!a||!b) return;
+  const ra=a.getBoundingClientRect(), rb=b.getBoundingClientRect();
+  const x1=ra.left+ra.width/2, y1=ra.top+ra.height/2, x2=rb.left+rb.width/2, y2=rb.top+rb.height/2;
+  const p=document.createElementNS('http://www.w3.org/2000/svg','path');
+  const mx=(x1+x2)/2;
+  p.setAttribute('d',`M ${x1} ${y1} C ${mx} ${y1}, ${mx} ${y2}, ${x2} ${y2}`);
+  p.setAttribute('class','trace-line'+(alt?' alt':'')); traceSvg.appendChild(p);
+}
+function fly(from,to,label,delay=0,duration=720,color='orange'){
+  if(!from||!to) return;
+  const a=from.getBoundingClientRect(), b=to.getBoundingClientRect();
+  const token=document.createElement('div'); token.className='fly-token'; token.textContent=label;
+  token.style.left=a.left+'px'; token.style.top=a.top+'px'; token.style.width=a.width+'px'; token.style.height=a.height+'px';
+  if(color==='blue'){ token.style.background='#dff1ff'; token.style.borderColor='#5895cf'; }
+  document.body.appendChild(token);
+  const dx=b.left-a.left, dy=b.top-a.top, sx=b.width/a.width, sy=b.height/a.height;
+  token.animate([{transform:'translate(0,0) scale(1)',opacity:1},{transform:`translate(${dx}px,${dy}px) scale(${sx},${sy})`,opacity:.88}],{duration,delay,easing:'cubic-bezier(.22,.78,.2,1)',fill:'forwards'});
+  setTimeout(()=>token.remove(),delay+duration+80);
+}
+function label26(n){ let s=''; do{ s=String.fromCharCode(65+(n%26))+s; n=Math.floor(n/26)-1; }while(n>=0); return s; }
+function mkTable(rows,{compact=false,rowLabels=null,colLabels=null,cellAttrs=null,cellClass=null,id=null}={}){
+  const t=document.createElement('table'); t.className='matrix'+(compact?' compact':''); if(id)t.id=id;
+  if(colLabels){ const tr=document.createElement('tr'); if(rowLabels){const th=document.createElement('th');tr.appendChild(th);} colLabels.forEach(v=>{const th=document.createElement('th');th.textContent=v;tr.appendChild(th)}); t.appendChild(tr); }
+  rows.forEach((row,r)=>{ const tr=document.createElement('tr'); tr.dataset.row=String(r); if(rowLabels){const th=document.createElement('th');th.textContent=rowLabels[r]??'';tr.appendChild(th);} row.forEach((v,c)=>{const td=document.createElement('td');td.textContent=v; if(cellAttrs)Object.entries(cellAttrs(r,c,v)||{}).forEach(([k,val])=>td.setAttribute(k,String(val))); const cls=cellClass?cellClass(r,c,v):''; if(cls) td.classList.add(...cls.split(/\s+/).filter(Boolean)); tr.appendChild(td)}); t.appendChild(tr); }); return t;
+}
+function setStatus(el,html){el.innerHTML=html;}
+
+// ---------- Figure 1 ----------
+const F1={mode:'conv',win:0,kernel:0};
+const f1Channels=[]; let idx=0;
+for(let ch=0;ch<3;ch++){ const m=[]; for(let r=0;r<4;r++){const row=[];for(let c=0;c<4;c++)row.push(label26(idx++));m.push(row);} f1Channels.push(m); }
+const f1Wins=[[0,0],[0,1],[1,0],[1,1]];
+function winSources(win){ const [wr,wc]=f1Wins[win]; const out=[]; for(let ch=0;ch<3;ch++)for(let dr=0;dr<3;dr++)for(let dc=0;dc<3;dc++)out.push({ch,x:wr+dr,y:wc+dc,value:f1Channels[ch][wr+dr][wc+dc]}); return out; }
+const f1InputRows=f1Wins.map((_,i)=>winSources(i).map(o=>o.value));
+const f1Weights=Array.from({length:8},(_,k)=>Array.from({length:27},(_,i)=>`${k+1}:${i+1}`));
+function renderF1Input(){
+  const root=$('#fig1-input'); root.innerHTML='';
+  f1Channels.forEach((mat,ch)=>{ const block=document.createElement('div'); block.className='channel'+((F1.mode==='stencil'&&ch>0)?' absent':''); block.dataset.ch=ch; const lab=document.createElement('div');lab.className='channel-label';lab.textContent=`Channel ${ch+1}`; block.appendChild(lab); const wrap=document.createElement('div');wrap.className='grid-wrap'; const t=document.createElement('table');t.className='grid-table';t.dataset.ch=ch; mat.forEach((row,r)=>{const tr=document.createElement('tr');row.forEach((v,c)=>{const td=document.createElement('td');td.textContent=v;td.dataset.ch=ch;td.dataset.x=r;td.dataset.y=c;td.dataset.role='fig1-source';tr.appendChild(td)});t.appendChild(tr)});wrap.appendChild(t); const frame=document.createElement('div');frame.className='window-frame';frame.dataset.frameCh=ch;wrap.appendChild(frame); block.appendChild(wrap); root.appendChild(block); });
+  requestAnimationFrame(updateF1Frames);
+}
+function updateF1Frames(){ const [wr,wc]=f1Wins[F1.win]; $$('[data-frame-ch]').forEach(frame=>{ const wrap=frame.parentElement, table=$('table',wrap); const start=table.querySelector(`td[data-x="${wr}"][data-y="${wc}"]`), end=table.querySelector(`td[data-x="${wr+2}"][data-y="${wc+2}"]`); if(!start||!end)return; const rw=wrap.getBoundingClientRect(), a=start.getBoundingClientRect(), b=end.getBoundingClientRect(); frame.style.left=(a.left-rw.left-1)+'px'; frame.style.top=(a.top-rw.top-1)+'px'; frame.style.width=(b.right-a.left+2)+'px'; frame.style.height=(b.bottom-a.top+2)+'px'; }); }
+function renderF1InputMatrix(){
+  const root=$('#fig1-im2row'); root.innerHTML='';
+  const t=mkTable(f1InputRows,{compact:true,rowLabels:['P1','P2','P3','P4'],colLabels:Array.from({length:27},(_,i)=>`C${Math.floor(i/9)+1}.${i%9+1}`),cellAttrs:(r,c)=>{const o=winSources(r)[c];return {'data-role':'fig1-im2row-cell','data-source-ch':o.ch,'data-source-x':o.x,'data-source-y':o.y,'data-win':r,'data-col':c};},cellClass:(r,c)=>F1.mode==='stencil'&&c>=9?'inactive-channel':''}); root.appendChild(t);
+  $$('[data-role="fig1-im2row-cell"]',root).forEach(td=>{ td.addEventListener('mouseenter',()=>{clearTrace(); const src=$(`#fig1-input td[data-ch="${td.dataset.sourceCh}"][data-x="${td.dataset.sourceX}"][data-y="${td.dataset.sourceY}"]`); if(src){src.classList.add('source-match');td.classList.add('target-match');lineBetween(src,td,false); setStatus($('#fig1-status'),`<strong>${td.textContent}</strong> 来自 Channel ${Number(td.dataset.sourceCh)+1} 的输入位置 (${Number(td.dataset.sourceX)+1}, ${Number(td.dataset.sourceY)+1})。`);} }); td.addEventListener('mouseleave',clearTrace); });
+}
+function renderF1KernelSource(){
+  const root=$('#fig1-kernel-source');root.innerHTML='';const wrap=document.createElement('div');wrap.className='kernel-source-wrap';
+  for(let ch=0;ch<3;ch++){const one=document.createElement('div');one.className='channel'+((F1.mode==='stencil'&&ch>0)?' absent':'');const lab=document.createElement('div');lab.className='kernel-slice-title';lab.textContent=`K${F1.kernel+1} · C${ch+1}`;one.appendChild(lab);const vals=[];for(let r=0;r<3;r++){const row=[];for(let c=0;c<3;c++)row.push(f1Weights[F1.kernel][ch*9+r*3+c]);vals.push(row);}const t=mkTable(vals,{cellAttrs:(r,c)=>({'data-role':'fig1-kernel-source','data-ch':ch,'data-k':F1.kernel,'data-idx':ch*9+r*3+c})});t.classList.add('kernel-source');one.appendChild(t);wrap.appendChild(one);}root.appendChild(wrap);
+}
+function renderF1KernelMatrix(){
+  const rows=Array.from({length:27},(_,i)=>Array.from({length:8},(_,k)=>f1Weights[k][i])); const root=$('#fig1-kernel-matrix'); root.innerHTML='';
+  const t=mkTable(rows,{compact:true,colLabels:Array.from({length:8},(_,k)=>`K${k+1}`),cellAttrs:(r,c)=>({'data-role':'fig1-kernel-matrix-cell','data-k':c,'data-idx':r}),cellClass:(r,c)=>{let s='kernel-col';if(c===F1.kernel)s+=' active-col';if(F1.mode==='stencil'&&c>0)s+=' inactive';if(F1.mode==='stencil'&&r>=9)s+=' inactive-channel';return s;}});root.appendChild(t);
+}
+function renderF1Output(){
+  const rows=Array.from({length:4},(_,r)=>Array.from({length:8},(_,k)=>`Y${r+1},${k+1}`)); const root=$('#fig1-output');root.innerHTML=''; const t=mkTable(rows,{compact:true,rowLabels:['P1','P2','P3','P4'],colLabels:Array.from({length:8},(_,k)=>`K${k+1}`),cellAttrs:(r,c)=>({'data-role':'fig1-output','data-win':r,'data-k':c}),cellClass:(r,c)=>F1.mode==='stencil'&&c>0?'kernel-col inactive':''});t.classList.add('output-grid');root.appendChild(t);
+  $$('[data-role="fig1-output"]',root).forEach(td=>td.addEventListener('click',()=>focusF1Product(Number(td.dataset.win),Number(td.dataset.k),td)));
+}
+function focusF1Product(win,k,outCell){ clearTrace(); $$('.row-focus,.out-focus').forEach(e=>e.classList.remove('row-focus','out-focus')); F1.kernel=k; $('#fig1-kernel-select').value=String(k); renderF1KernelSource(); renderF1KernelMatrix(); const row=$(`#fig1-im2row tr[data-row="${win}"]`); if(row)row.classList.add('row-focus'); $$(`#fig1-kernel-matrix td[data-k="${k}"]`).forEach(e=>e.classList.add('target-match')); outCell.classList.add('out-focus'); setStatus($('#fig1-status'),`输出 <strong>Y${win+1},${k+1}</strong> = Input Matrix 第 ${win+1} 行 与 Kernel Matrix 第 ${k+1} 列的点积。行表示窗口位置，列表示 kernel。`); }
+function renderF1TCU(){ const root=$('#fig1-tcu');root.innerHTML=''; for(let k=0;k<8;k++){const d=document.createElement('div');d.className='slot'+((F1.mode==='stencil'&&k>0)?' wasted':'');d.innerHTML=`<b>K${k+1}</b><span>${F1.mode==='stencil'&&k>0?'无对应 kernel':'有效列'}</span>`;root.appendChild(d);} }
+function renderF1All(){renderF1Input();renderF1InputMatrix();renderF1KernelSource();renderF1KernelMatrix();renderF1Output();renderF1TCU(); $$('[data-win]').forEach(b=>b.classList.toggle('active',Number(b.dataset.win)===F1.win)); $('#fig1-mode-conv').classList.toggle('active',F1.mode==='conv');$('#fig1-mode-stencil').classList.toggle('active',F1.mode==='stencil');requestAnimationFrame(updateF1Frames);}
+function setF1Mode(mode){F1.mode=mode;if(mode==='stencil'){F1.kernel=0;$('#fig1-kernel-select').value='0';$('#fig1-kernel-select').disabled=true;}else{$('#fig1-kernel-select').disabled=false;}renderF1All(); if(mode==='stencil')setStatus($('#fig1-status'),'<strong>Stencil 模式：</strong>输入通道 2、3 不存在，Kernel 2～8 不存在。Kernel Matrix 只剩 1 个有效列；右侧 8 个 TCU 列槽位因此有 7 个没有有效数据。'); else setStatus($('#fig1-status'),'<strong>Convolution 模式：</strong>3 个输入通道共同形成每个 im2row 行；8 个 kernel 形成 Kernel Matrix 的 8 列。');}
