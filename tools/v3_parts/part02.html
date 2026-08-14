@@ -1,0 +1,65 @@
+          <h4>FP64 TCU Fragment：右侧 8 列</h4>
+          <div class="tcu" id="fig1-tcu"></div>
+        </div>
+      </div>
+      <div class="status" id="fig1-status"><strong>当前：</strong>Convolution 模式。Input Matrix 保留 3 个通道的数据；8 个 kernel 形成 Kernel Matrix 的 8 列。</div>
+      <div class="legend"><span><i style="background:#fff0b8"></i>正在追踪的数据</span><span><i style="background:#eef2f7;opacity:.35"></i>切换为 stencil 后不存在的数据</span></div>
+      <details class="reference"><summary>对照论文原 Figure 1</summary><img src="../artifacts/v3_embedded_1.png" alt="paper figure 1 crop"/></details>
+    </div>
+  </section>
+
+  <section class="panel" id="fig2-panel">
+    <div class="toolbar">
+      <div class="group"><span class="slider-label">7×7 窗口横向偏移：<b id="fig2-offset-label">3</b></span><input id="fig2-offset" type="range" min="0" max="8" step="1" value="3"/></div>
+      <div class="group"><button class="btn primary" id="fig2-play-map">逐项播放：当前冗余行 → 第 0 / 7 行</button><button class="btn" id="fig2-show-stencil2row">显示 Stencil2row A / B</button><button class="btn" id="fig2-demo-repack">播放：原输入 → A / B</button></div>
+    </div>
+
+    <div class="board" id="fig2-board">
+      <div class="board-title">Figure 2：同一批数据如何在 im2row 与 stencil2row 中排列</div>
+      <div class="fig2-layout">
+        <div>
+          <div class="box memory-band global">
+            <div class="band-label">Global Memory</div>
+            <h3>Input（8 行，横向展示 A…X）</h3>
+            <div class="matrix-wrap"><div class="grid-wrap" id="fig2-input-wrap"><table class="grid-table" id="fig2-input"></table><div class="window-frame" id="fig2-window-frame"></div></div></div>
+            <div class="fact">橙色边框就是 7×7 kernel 当前覆盖的窗口。拖动上方滑块时，窗口在同一张输入矩阵上横向移动。</div>
+          </div>
+          <div class="box memory-band registers">
+            <div class="band-label">Registers / Tensor Core</div>
+            <h3>Dual Tessellation 在 Figure 2 中的结构</h3>
+            <div class="dual" id="fig2-dual">
+              <div class="dual-line"><div class="tile-chip a"><b>Matrix A 的 tile</b></div><div class="math-op">×</div><div class="weight-chip">Weight A</div><div class="math-op">→</div><div class="partial-chip a">部分结果 A</div></div>
+              <div class="dual-line"><div class="tile-chip b"><b>Matrix B 的 tile</b></div><div class="math-op">×</div><div class="weight-chip">Weight B</div><div class="math-op">→</div><div class="partial-chip b">部分结果 B</div></div>
+              <div class="dual-merge"><div class="partial-chip a">部分结果 A</div><div class="math-op">＋</div><div class="partial-chip b">部分结果 B</div><div class="math-op">→</div><div class="result-chip">Stencil 结果</div></div>
+            </div>
+            <button class="btn" id="fig2-demo-tensor">播放结构</button>
+          </div>
+        </div>
+
+        <div class="box memory-band shared">
+          <div class="band-label">Shared Memory</div>
+          <h3>Im2row Matrix：第 0～8 个横向窗口</h3>
+          <div class="matrix-wrap" id="fig2-im2row"></div>
+          <div class="split-note"><span class="a">棕色：在第 0 行中已有相同顺序</span><span class="b">蓝色：在第 7 行中已有相同顺序</span></div>
+          <div class="status" id="fig2-status"></div>
+
+          <div class="stencil2row-zone" id="fig2-stencil2row">
+            <h3 style="margin-top:16px">Stencil2row Matrices</h3>
+            <div class="ab-grid">
+              <div><h4>Matrix A</h4><div class="matrix-wrap" id="fig2-A"></div></div>
+              <div><h4>Matrix B</h4><div class="matrix-wrap" id="fig2-B"></div></div>
+            </div>
+            <div class="fact">点击上面的任意 Input 格子：它在 Matrix A / B 中的目标位置会高亮。一个输入元素可能进入 A、B 两者之一，也可能同时进入两者。</div>
+          </div>
+        </div>
+      </div>
+      <details class="reference"><summary>对照论文原 Figure 2</summary><img src="../artifacts/v3_embedded_2.png" alt="paper figure 2 crop"/></details>
+      <div class="paper-note">依据论文 Figure 1、Figure 2 与 Section 2.2–3.2。Figure 2 的演示采用论文相同的 7×7 kernel，并按论文的字母编号方式生成输入；横向只展开到足以展示第 0～8 行及 Matrix A/B 的前几组数据。</div>
+    </div>
+  </section>
+</div>
+<script>
+(() => {
+'use strict';
+const $ = (s,root=document)=>root.querySelector(s);
+const $$ = (s,root=document)=>Array.from(root.querySelectorAll(s));
