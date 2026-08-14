@@ -16,8 +16,8 @@ jobs:
       - name: Download ConvStencil paper
         run: |
           mkdir -p paper
-          curl -L --fail --retry 3 -A 'Mozilla/5.0' \
-            'https://dl.acm.org/doi/pdf/10.1145/3627535.3638476' \
+          curl -L --fail --retry 3 \
+            'https://www.likun.tech/pdf/ppopp24_ConvStencil.pdf' \
             -o paper/ppopp24_ConvStencil.pdf
           test -s paper/ppopp24_ConvStencil.pdf
           file paper/ppopp24_ConvStencil.pdf | grep -qi PDF
