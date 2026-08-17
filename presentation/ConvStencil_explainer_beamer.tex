@@ -1,0 +1,422 @@
+\documentclass[aspectratio=169,11pt]{beamer}
+\usepackage{fontspec}
+\usepackage{xeCJK}
+\usepackage{amsmath,amssymb,bm,mathtools}
+\usepackage{array,booktabs}
+\usepackage{ragged2e}
+\setCJKmainfont{Noto Sans CJK SC}
+\setsansfont{DejaVu Sans}
+\setmainfont{DejaVu Serif}
+\setbeamertemplate{navigation symbols}{}
+\setbeamertemplate{footline}{%
+  \leavevmode\hbox{\hspace*{0.6em}\scriptsize ConvStencil 阅读讲解\hfill\insertframenumber/\inserttotalframenumber\hspace*{0.8em}}\vspace{0.25em}}
+\setbeamertemplate{itemize item}{--}
+\setbeamertemplate{itemize subitem}{--}
+\setbeamersize{text margin left=0.8cm,text margin right=0.8cm}
+\setbeamerfont{frametitle}{size=\Large,series=\bfseries}
+\setbeamerfont{normal text}{size=\normalsize}
+\newcommand{\dotp}[2]{\left\langle #1,#2\right\rangle}
+\newcommand{\R}{\mathbb{R}}
+\newcommand{\smallnote}[1]{\vspace{0.25em}{\scriptsize\color{gray}#1}}
+\title{ConvStencil：从模板乘加到张量核心矩阵计算}
+\subtitle{三种算法的统一理解、必要公式与 GPU 实现优化}
+\author{}
+\date{PPoPP 2024 论文阅读讲解稿}
+
+\begin{document}
+
+\begin{frame}
+  \titlepage
+  \vspace{-0.8em}
+  \centering
+  \large \(y=\dotp{\bm{x}}{\bm{w}}\)
+\end{frame}
+
+\begin{frame}{1. 从最普通的 stencil 乘加开始}
+\small
+固定一个 \(3\times 3\) 模板，权重统一编号：
+\[
+W=\begin{bmatrix}
+ w_0&w_1&w_2\\
+ w_3&w_4&w_5\\
+ w_6&w_7&w_8
+\end{bmatrix},\qquad
+\bm w=(w_0,w_1,\ldots,w_8).
+\]
+第 \(j\) 个输出位置看到的九个数据写成一条向量：
+\[
+\bm x_j=(d_{0,j},d_{0,j+1},d_{0,j+2},\ d_{1,j},\ldots,d_{2,j+2}).
+\]
+于是一个输出就是一条数据向量与一条权重向量的点积：
+\[
+\boxed{y_j=\dotp{\bm x_j}{\bm w}}
+\]
+所有后续“矩阵算法”都只是把很多这样的向量点积一起组织起来。
+\end{frame}
+
+\begin{frame}{2. 矩阵乘法只是把许多向量点积一起写}
+\small
+如果要同时算四个相邻输出：
+\[
+y_0=\dotp{\bm x_0}{\bm w},\quad
+ y_1=\dotp{\bm x_1}{\bm w},\quad
+ y_2=\dotp{\bm x_2}{\bm w},\quad
+ y_3=\dotp{\bm x_3}{\bm w}.
+\]
+把四条数据向量叠成矩阵的四行：
+\[
+X=\begin{bmatrix}
+\bm x_0\\ \bm x_1\\ \bm x_2\\ \bm x_3
+\end{bmatrix},\qquad
+X\bm w^{\mathsf T}=\begin{bmatrix}y_0\\y_1\\y_2\\y_3\end{bmatrix}.
+\]
+因此以后读一个矩阵时始终记住：
+\[
+\boxed{\text{矩阵的一行 = 一条数据向量；矩阵的一列 = 一条权重向量；一个结果格 = 一个点积。}}
+\]
+\end{frame}
+
+\begin{frame}{3. 三条路线：把“滑动”写在哪里？}
+\small
+\textbf{方法一：错位权重。} 原始数据尽量保持连续，把同一组权重不断错位排列。滑动主要写在权重一侧。\\[0.6em]
+\textbf{方法二：窗口展开（im2row）。} 每个完整窗口都变成一条数据向量，权重只保留一份。滑动主要写在数据一侧。\\[0.6em]
+\textbf{方法三：ConvStencil。} 只保留少量基准数据向量，不显式保存全部窗口；“中间窗口怎样拼出来”直接编码进两组权重向量。\\[0.8em]
+三种方法算的数学结果都没有变：仍然是 \(\dotp{\bm x}{\bm w}\)。变化的是\textbf{数据和权重如何组织}。
+\end{frame}
+
+\begin{frame}{4. 方法一：用错位权重表示横向滑动}
+\small
+先只看模板的一横行 \((w_0,w_1,w_2)\)，以及六个连续数据 \((d_0,\ldots,d_5)\)。
+\[
+T=\begin{bmatrix}
+ w_0&0&0&0\\
+ w_1&w_0&0&0\\
+ w_2&w_1&w_0&0\\
+ 0&w_2&w_1&w_0\\
+ 0&0&w_2&w_1\\
+ 0&0&0&w_2
+\end{bmatrix}.
+\]
+于是
+\[
+(d_0,d_1,d_2,d_3,d_4,d_5)\,T
+=(y_0^{(r)},y_1^{(r)},y_2^{(r)},y_3^{(r)}).
+\]
+二维 \(3\times3\) 时，对模板的三横行分别做同样的错位计算，再把三份贡献逐项相加。
+\end{frame}
+
+\begin{frame}{5. 方法二：每个完整窗口都变成一条数据向量}
+\small
+四个横向窗口分别是：
+\[
+\begin{aligned}
+\bm x_0&=(d_{0,0},d_{0,1},d_{0,2},d_{1,0},\ldots,d_{2,2}),\\
+\bm x_1&=(d_{0,1},d_{0,2},d_{0,3},d_{1,1},\ldots,d_{2,3}),\\
+\bm x_2&=(d_{0,2},d_{0,3},d_{0,4},d_{1,2},\ldots,d_{2,4}),\\
+\bm x_3&=(d_{0,3},d_{0,4},d_{0,5},d_{1,3},\ldots,d_{2,5}).
+\end{aligned}
+\]
+把它们叠成：
+\[
+X_{\mathrm{im2row}}=\begin{bmatrix}\bm x_0\\\bm x_1\\\bm x_2\\\bm x_3\end{bmatrix},\qquad
+X_{\mathrm{im2row}}\bm w^{\mathsf T}=\begin{bmatrix}y_0\\y_1\\y_2\\y_3\end{bmatrix}.
+\]
+问题：相邻 \(\bm x_j\) 高度重叠；为了多算一个相邻输出，却又保存了一整条长度为 9 的窗口向量。
+\end{frame}
+
+\begin{frame}{6. 从方法二出发：中间窗口其实不必完整保存}
+\small
+定义两条基准数据向量：
+\[
+\bm a=(d_{0,0},d_{0,1},d_{0,2},d_{1,0},d_{1,1},d_{1,2},d_{2,0},d_{2,1},d_{2,2}),
+\]
+\[
+\bm b=(d_{0,3},d_{0,4},d_{0,5},d_{1,3},d_{1,4},d_{1,5},d_{2,3},d_{2,4},d_{2,5}).
+\]
+第 1 个中间窗口并没有丢：它等于每一行“\(\bm a\) 的后两个 + \(\bm b\) 的前一个”。\\[0.4em]
+第 2 个中间窗口同理：每一行“\(\bm a\) 的后一个 + \(\bm b\) 的前两个”。\\[0.8em]
+因此四个横向位置的来源规律是：
+\[
+A3B0\;\rightarrow\;A2B1\;\rightarrow\;A1B2\;\rightarrow\;A0B3.
+\]
+这不是四次程序执行，而是\textbf{四个不同输出位置分别需要多少 A/B 数据}。
+\end{frame}
+
+\begin{frame}{7. 极端零冗余分块：为什么还不够顺？}
+\small
+若完全不重复数据，可以按宽度 3 严格切块：
+\[
+P_0=(d_0,d_1,d_2),\quad P_1=(d_3,d_4,d_5),\quad P_2=(d_6,d_7,d_8),\ldots
+\]
+第一对 \((P_0,P_1)\) 可以完整覆盖四个横向输出：
+\[
+y_0,y_1,y_2,y_3.
+\]
+下一对 \((P_1,P_2)\) 又会覆盖：
+\[
+y_3,y_4,y_5,y_6.
+\]
+于是边界输出 \(y_3\) 被重复。一般 \(k\times k\) 时，相邻两对严格无重叠块都会共享一个“全右块 / 全左块”的边界结果。\\[0.7em]
+所以零冗余并非不能算，而是每一新组真正新增的结果只有 \(k\) 个，而不是 \(k+1\) 个。
+\end{frame}
+
+\begin{frame}{8. 加回少量重叠：让每组都产生 \(k+1\) 个新结果}
+\small
+\(k=3\) 时第一组：
+\[
+\bm a_0=(d_0,d_1,d_2),\qquad \bm b_0=(d_3,d_4,d_5)
+\]
+负责 \(y_0,y_1,y_2,y_3\)。\\[0.6em]
+下一组希望直接从 \(y_4\) 开始，所以新的左向量应从 \(d_4\) 开始：
+\[
+\bm a_1=(d_4,d_5,d_6),\qquad \bm b_1=(d_7,d_8,d_9).
+\]
+于是 \(\bm b_0\) 与 \(\bm a_1\) 故意重叠 \(k-1=2\) 个数据。\\[0.6em]
+一般情况下，恰好需要 \(k-1\) 个重叠，才能让每个空间组都稳定产生 \(k+1\) 个\textbf{全新}输出。
+\end{frame}
+
+\begin{frame}{9. 方法三的微观形式：两个向量点积相加}
+\small
+对第 \(t\) 个横向偏移，定义两条权重向量 \(\bm w_t^A,\bm w_t^B\)。
+\[
+\boxed{y_t=\dotp{\bm a}{\bm w_t^A}+\dotp{\bm b}{\bm w_t^B}}
+\]
+对于 \(3\times3\) 模板：
+\[
+\begin{array}{c|cccc}
+ t&0&1&2&3\\\hline
+ A\text{ 有效乘项}&9&6&3&0\\
+ B\text{ 有效乘项}&0&3&6&9
+\end{array}
+\]
+“A 负责 6 项”严格含义是：\(\bm w_1^A\) 只有 6 个非零权重，因此 \(\dotp{\bm a}{\bm w_1^A}\) 包含 6 个有效乘积。
+\end{frame}
+
+\begin{frame}{10. 方法三的宏观矩阵：把权重向量并成列}
+\scriptsize
+\[
+W_A=\begin{bmatrix}
+ w_0&0&0&0\\
+ w_1&w_0&0&0\\
+ w_2&w_1&w_0&0\\
+ w_3&0&0&0\\
+ w_4&w_3&0&0\\
+ w_5&w_4&w_3&0\\
+ w_6&0&0&0\\
+ w_7&w_6&0&0\\
+ w_8&w_7&w_6&0
+\end{bmatrix},\qquad
+W_B=\begin{bmatrix}
+ 0&w_2&w_1&w_0\\
+ 0&0&w_2&w_1\\
+ 0&0&0&w_2\\
+ 0&w_5&w_4&w_3\\
+ 0&0&w_5&w_4\\
+ 0&0&0&w_5\\
+ 0&w_8&w_7&w_6\\
+ 0&0&w_8&w_7\\
+ 0&0&0&w_8
+\end{bmatrix}.
+\]
+\[
+\boxed{\bm a W_A+\bm b W_B=(y_0,y_1,y_2,y_3)}
+\]
+每一列就是一条权重向量；所谓“下三角 / 上三角”只是不同输出偏移的有效权重逐渐减少 / 增加的矩阵写法。
+\end{frame}
+
+\begin{frame}{11. 方法一与方法三其实非常接近}
+\small
+仍只看模板的一横行 \((w_0,w_1,w_2)\)。方法一的完整错位矩阵是：
+\[
+T=\begin{bmatrix}
+ w_0&0&0&0\\
+ w_1&w_0&0&0\\
+ w_2&w_1&w_0&0\\
+ 0&w_2&w_1&w_0\\
+ 0&0&w_2&w_1\\
+ 0&0&0&w_2
+\end{bmatrix}.
+\]
+而方法三恰好把它拆成上下两半：
+\[
+\boxed{T=\begin{bmatrix}L\\U\end{bmatrix}},\qquad
+(d_0,\ldots,d_5)T=(d_0,d_1,d_2)L+(d_3,d_4,d_5)U.
+\]
+所以：\textbf{数据布局上，方法三从方法二的重复窗口问题出发；计算结构上，它又重新利用了方法一的错位权重结构。}
+\end{frame}
+
+\begin{frame}{12. 推广到一般 \(k\times k\)：微观与宏观统一}
+\small
+第 \(g\) 个空间组定义两条 \(k^2\) 维基准数据向量：
+\[
+\bm a_g,\quad \bm b_g\in\R^{k^2}.
+\]
+第 \(t\in\{0,1,\ldots,k\}\) 个横向偏移定义两条权重向量：
+\[
+\bm w_t^A,\quad \bm w_t^B\in\R^{k^2}.
+\]
+于是一个最终输出始终是：
+\[
+\boxed{y_{g,t}=\dotp{\bm a_g}{\bm w_t^A}+\dotp{\bm b_g}{\bm w_t^B}}
+\]
+有效乘项数：
+\[
+A:k(k-t),\qquad B:kt.
+\]
+把不同 \(g\) 排成矩阵的行，把不同 \(t\) 排成权重矩阵的列，就得到宏观矩阵计算。
+\end{frame}
+
+\begin{frame}{13. A100 上为什么出现 \(8\times49\) 与 \(49\times8\)}
+\small
+论文使用的 A100 FP64 张量核心操作形状：
+\[
+\boxed{8\times4\;\times\;4\times8\;\longrightarrow\;8\times8}
+\]
+一次可以并行推进 \(8\times8\) 个点积，但每个点积一次只累加 4 对乘积。\\[0.6em]
+对 \(7\times7\) 模板：
+\[
+k^2=49,\qquad k+1=8.
+\]
+因此：
+\[
+A_{\text{tile}}\in\R^{8\times49},\qquad W_A\in\R^{49\times8},
+\]
+\[
+A_{\text{tile}}W_A\in\R^{8\times8}.
+\]
+一个 49 维点积要分成 \(\lceil49/4\rceil=13\) 次硬件累加；B 侧同理。
+\end{frame}
+
+\begin{frame}{14. 必要公式：一次空间组的工作怎样变成总时间}
+\small
+每个空间组包含 \(8(k+1)\) 个最终输出；A/B 两侧各需要
+\[
+\left\lceil\frac{k^2}{4}\right\rceil
+\]
+次张量核心矩阵乘加，因此总指令数：
+\[
+\boxed{
+N_{\mathrm{MMA}}
+=
+\frac{2mn}{8(k+1)}
+\left\lceil\frac{k^2}{4}\right\rceil
+}
+\]
+计算时间模型：
+\[
+\boxed{
+T_{\mathrm{compute}}
+=
+\frac{N_{\mathrm{MMA}}\,CPI_{\mathrm{tcu}}}{fN_{\mathrm{tcu}}}
+}
+\]
+方法二的 GEMM 式写法则近似为：
+\[
+T_{\mathrm{compute,GEMM}}
+=
+\frac{k^2mn}{32}\cdot\frac{CPI_{\mathrm{tcu}}}{fN_{\mathrm{tcu}}}.
+\]
+\smallnote{对应论文式 (13)--(15)。}
+\end{frame}
+
+\begin{frame}{15. 计算以外：为什么数据搬运也会拖慢？}
+\small
+最直接的实现会先完整生成 A/B，再写回较大的全局显存；真正计算时又把它们读回来：
+\[
+\text{原输入}\rightarrow\text{完整 A/B}\rightarrow\text{写回显存}\rightarrow\text{再次读入}\rightarrow\text{计算}.
+\]
+但实际一次只需要当前小块，例如 \(8\times49\)。因此可以改成：
+\[
+\text{原输入}\rightarrow\text{在共享内存中直接排当前小块}\rightarrow\text{立即计算}.
+\]
+这样完整 A/B 大矩阵从未真正生成，省掉一轮中间数据“写回大显存再读回来”。\\[0.6em]
+这属于通用高性能思想；Stencil2row 的优势是它使按需构造当前小块很自然。
+\end{frame}
+
+\begin{frame}{16. 查找表：为什么地址关系会被反复计算？}
+\small
+Stencil2row 的横向映射具有周期性。以 \(k=7\) 为例，每 8 个位置重复同一种局部关系：
+\[
+0,1,2,3,4,5,6\;\text{进入 A},\qquad 7\;\text{不进入 A},
+\]
+下一组 \(8\ldots15\) 又重复同一规律。\\[0.6em]
+于是不同线程块虽然处理的绝对位置不同，却会反复推导相同的“局部第几个元素应该写到哪里”。现场推导需要除法、取模、判断与地址组合。\\[0.6em]
+优化方法：先在 CPU 端把“局部位置 \(\rightarrow\) 目标地址”算成查找表，GPU 运行时直接查答案。\\[0.6em]
+\textbf{因果关系是：布局规律重复 \(\Rightarrow\) 地址推导重复；除法取模只是重复推导时的代价。}
+\end{frame}
+
+\begin{frame}{17. 共享内存为什么会出现访问冲突？}
+\small
+共享内存可以粗略理解成 32 个可并行服务的存储分组。理想情况是同一批线程分别访问不同分组；若多个线程同时访问\textbf{同一分组中的不同地址}，请求就必须拆开，原本的并行读写被部分串行化。\\[0.7em]
+论文的 FP64 数据每个占 8 字节，而一个存储分组宽 4 字节；张量核心一次又按固定的 \(8\times4\) 数据块读取。于是“每一行在内存里跨多长”会决定后续行落到哪些存储分组。\\[0.7em]
+论文示例把每行跨度从 266 个 FP64 改成 268 个：多出的两个位置只是占位，不参与数学计算，却能让后续各行的存储分组映射错开，从而消除原先的碰撞。
+\end{frame}
+
+\begin{frame}{18. “脏数据”填充：用空位换掉条件分支}
+\small
+A/B 矩阵都比原输入小，因此某些输入元素对当前 A 或 B 根本无处可写。最直接的代码需要：
+\[
+\text{若有效则写入；否则跳过。}
+\]
+但一批 GPU 线程若有的进入分支、有的不进入，就不能整齐并行。\\[0.7em]
+前一页为了错开共享内存访问，已经故意留下了占位空格。于是把无效数据统一写进这些空格：
+\[
+\text{有效数据}\rightarrow\text{真实位置},\qquad
+\text{无效数据}\rightarrow\text{永远不会读取的空位置}.
+\]
+所有线程都执行同样的“读取 \(\rightarrow\) 查表 \(\rightarrow\) 写入”，不再需要条件判断。\\[0.6em]
+所谓“脏数据”只是被安全丢进垃圾桶的数据，本身没有数学意义。
+\end{frame}
+
+\begin{frame}{19. 计算模板融合：为什么小模板仍然吃不满硬件？}
+\small
+\(3\times3\) 模板的 Weight A 只有 3 个实际有效列，而硬件一次有 8 个结果列：
+\[
+\underbrace{\text{有效}\ \text{有效}\ \text{有效}}_{3}\ \underbrace{\text{空}\ \text{空}\ \text{空}\ \text{空}\ \text{空}}_{5}.
+\]
+因此作者把连续时间步临时融合，让等效依赖范围变大；论文示例中 Box-2D9P 被组织成 Box-2D49P 的形状，融合后 8 列中只剩 1 列浪费。\\[0.7em]
+这是一种\textbf{辅助的硬件利用率优化}，不是 ConvStencil 核心数学结构独有的优势。论文还专门与已做时间融合的方法比较，并指出主要性能收益并非来自这一步。
+\end{frame}
+
+\begin{frame}{20. 最后分类：哪些是方法本身，哪些是工程优化？}
+\small
+\begin{tabular}{>{\raggedright\arraybackslash}p{0.22\textwidth} >{\raggedright\arraybackslash}p{0.34\textwidth} >{\raggedright\arraybackslash}p{0.36\textwidth}}
+\toprule
+层次 & 核心内容 & 作用 \\
+\midrule
+方法本身 & stencil2row + Dual Tessellation & 少存重复窗口；把多个空间输出组织进矩阵计算 \\
+\addlinespace
+布局带来的实现优势 & 按需构造小块、更规则的数据访问 & 少搬中间数据，减少无效访存 \\
+\addlinespace
+针对新布局的工程修补 & 查找表、脏数据填充 & 去掉地址推导和线程分叉 \\
+\addlinespace
+通用 GPU 优化 & 改变行跨度以错开共享内存访问、时间步融合 & 减少访问冲突；提高小模板硬件利用率 \\
+\bottomrule
+\end{tabular}
+\end{frame}
+
+\begin{frame}{21. 阅读时始终保持的统一口径}
+\small
+1. 先定义数据向量和权重向量，再谈矩阵。\\[0.5em]
+2. “A 负责 42 项”只是简写：严格含义是某条 A 权重向量有 42 个非零权重。\\[0.5em]
+3. “A3B0 \(\rightarrow\) A2B1 \(\rightarrow\) \(\cdots\)”描述的是不同输出列，不是程序按时间一步步走。\\[0.5em]
+4. \(8\times49\times49\times8\) 的每个结果格，本质仍是一条数据向量与一条权重向量的点积。\\[0.5em]
+5. 第 3.4 节 的查表、共享内存错位、脏数据等是在“让算法在 GPU 上不被额外开销拖慢”，不是新的 stencil 数学。
+\end{frame}
+
+\begin{frame}{22. 参考与对应章节}
+\small
+论文：\textit{ConvStencil: Transform Stencil Computation to Matrix Multiplication on Tensor Cores}, PPoPP 2024.\\[0.8em]
+本讲解主要重组自：
+\begin{itemize}
+  \item 第 3.2 节：Stencil2row 与内存 / 数据传输；
+  \item 第 3.3 节：Dual Tessellation、Kernel Fusion、式 (13)--(15)；
+  \item 第 3.4 节：查找表、共享内存访问冲突、脏数据填充；
+  \item 第 5.3--5.4 节：与其他方法的对比与 Kernel Fusion 影响。
+\end{itemize}
+\vfill
+\centering
+\large 从 \(\dotp{\bm x}{\bm w}\) 出发，一直把“微观点积”与“宏观矩阵”对应起来。
+\end{frame}
+
+\end{document}
