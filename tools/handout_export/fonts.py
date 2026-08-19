@@ -2,26 +2,28 @@ from __future__ import annotations
 
 
 FONT_SETUP = r"""
-% Latin: exact TeX Gyre Termes Type 1 files, loaded through fontspec so Beamer
-% remains on the TU text encoding even when the animate package is present.
-\IfFontExistsTF{[qtmr.pfb]}{}{%
-  \PackageError{handout-fonts}{Missing font: TeX Gyre Termes Regular}{Install the TeX Gyre Termes fonts.}%
+% Latin: exact TeX Gyre Termes OpenType files distributed with TeX Live.
+% Using file names avoids depending on the host fontconfig database while
+% keeping XeLaTeX/fontspec on its native OpenType path.
+\IfFontExistsTF{texgyretermes-regular.otf}{}{%
+  \PackageError{handout-fonts}{Missing font: TeX Gyre Termes Regular}{Install the TeX Gyre font collection.}%
 }
-\IfFontExistsTF{[qtmb.pfb]}{}{%
-  \PackageError{handout-fonts}{Missing font: TeX Gyre Termes Bold}{Install the TeX Gyre Termes fonts.}%
+\IfFontExistsTF{texgyretermes-bold.otf}{}{%
+  \PackageError{handout-fonts}{Missing font: TeX Gyre Termes Bold}{Install the TeX Gyre font collection.}%
 }
-\IfFontExistsTF{[qtmri.pfb]}{}{%
-  \PackageError{handout-fonts}{Missing font: TeX Gyre Termes Italic}{Install the TeX Gyre Termes fonts.}%
+\IfFontExistsTF{texgyretermes-italic.otf}{}{%
+  \PackageError{handout-fonts}{Missing font: TeX Gyre Termes Italic}{Install the TeX Gyre font collection.}%
 }
-\IfFontExistsTF{[qtmbi.pfb]}{}{%
-  \PackageError{handout-fonts}{Missing font: TeX Gyre Termes Bold Italic}{Install the TeX Gyre Termes fonts.}%
+\IfFontExistsTF{texgyretermes-bolditalic.otf}{}{%
+  \PackageError{handout-fonts}{Missing font: TeX Gyre Termes Bold Italic}{Install the TeX Gyre font collection.}%
 }
 \setmainfont[
-  BoldFont={[qtmb.pfb]},
-  ItalicFont={[qtmri.pfb]},
-  BoldItalicFont={[qtmbi.pfb]}
-]{[qtmr.pfb]}
-% CJK: exact Fandol OpenType files distributed with TeX.
+  BoldFont=texgyretermes-bold.otf,
+  ItalicFont=texgyretermes-italic.otf,
+  BoldItalicFont=texgyretermes-bolditalic.otf
+]{texgyretermes-regular.otf}
+
+% CJK: exact Fandol OpenType files distributed with TeX Live.
 \IfFontExistsTF{FandolSong-Regular.otf}{}{%
   \PackageError{handout-fonts}{Missing font: FandolSong-Regular}{Install the required Fandol font.}%
 }
