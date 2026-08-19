@@ -23,7 +23,7 @@ jobs:
       - name: Install XeLaTeX
         run: |
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends texlive-xetex texlive-lang-chinese texlive-latex-extra texlive-fonts-recommended tex-gyre
+          sudo apt-get install -y --no-install-recommends texlive-xetex texlive-lang-chinese texlive-latex-extra texlive-fonts-recommended fonts-texgyre
       - name: Build PDF
         run: python tools/export_handout.py roadmap.md
       - name: Upload PDF
