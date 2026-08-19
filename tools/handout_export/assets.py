@@ -157,7 +157,8 @@ def prepare_assets(
                 raw_path = match.group(1).strip()
                 if raw_path in prepared:
                     continue
-                path = (source_dir / raw_path).resolve()
+                fs_path = raw_path.replace("\\", "/")
+                path = (source_dir / fs_path).resolve()
                 try:
                     prepared[raw_path] = prepare_asset(path, build_assets_dir)
                 except AssetError as exc:
