@@ -1,0 +1,50 @@
+[
+  {
+    "timestamp": "2026-08-19T17:31:50.404055+00:00",
+    "phase": "before-all",
+    "return_code": 0,
+    "query": "name,driver_version,temperature.gpu,pstate,clocks.current.graphics,clocks.current.memory,power.draw",
+    "value": "NVIDIA GeForce RTX 5060 Laptop GPU, 592.19, 50, P2, 0, 11001, 31.08",
+    "stderr": ""
+  },
+  {
+    "timestamp": "2026-08-19T17:31:50.450105+00:00",
+    "phase": "before-1024x7168-attempt-0",
+    "return_code": 0,
+    "query": "name,driver_version,temperature.gpu,pstate,clocks.current.graphics,clocks.current.memory,power.draw",
+    "value": "NVIDIA GeForce RTX 5060 Laptop GPU, 592.19, 50, P2, 0, 11001, 31.08",
+    "stderr": ""
+  },
+  {
+    "timestamp": "2026-08-19T17:31:56.474459+00:00",
+    "phase": "after-1024x7168-attempt-0",
+    "return_code": 0,
+    "query": "name,driver_version,temperature.gpu,pstate,clocks.current.graphics,clocks.current.memory,power.draw",
+    "value": "NVIDIA GeForce RTX 5060 Laptop GPU, 592.19, 55, P0, 2812, 12001, 53.80",
+    "stderr": ""
+  },
+  {
+    "timestamp": "2026-08-19T17:31:56.590791+00:00",
+    "phase": "before-2048x7168-attempt-0",
+    "return_code": 0,
+    "query": "name,driver_version,temperature.gpu,pstate,clocks.current.graphics,clocks.current.memory,power.draw",
+    "value": "NVIDIA GeForce RTX 5060 Laptop GPU, 592.19, 55, P0, 2812, 12001, 53.80",
+    "stderr": ""
+  },
+  {
+    "timestamp": "2026-08-19T17:32:03.423967+00:00",
+    "phase": "after-2048x7168-attempt-0",
+    "return_code": 0,
+    "query": "name,driver_version,temperature.gpu,pstate,clocks.current.graphics,clocks.current.memory,power.draw",
+    "value": "NVIDIA GeForce RTX 5060 Laptop GPU, 592.19, 56, P0, 2805, 12001, 54.65",
+    "stderr": ""
+  },
+  {
+    "timestamp": "2026-08-19T17:32:03.558194+00:00",
+    "phase": "after-all",
+    "return_code": 0,
+    "query": "name,driver_version,temperature.gpu,pstate,clocks.current.graphics,clocks.current.memory,power.draw",
+    "value": "NVIDIA GeForce RTX 5060 Laptop GPU, 592.19, 56, P0, 2805, 12001, 54.65",
+    "stderr": ""
+  }
+]

@@ -1,0 +1,41 @@
+{
+  "problem_sizes": [
+    {
+      "height": 1024,
+      "width": 7168
+    },
+    {
+      "height": 2048,
+      "width": 7168
+    }
+  ],
+  "warmups": 5,
+  "pairs": 21,
+  "orders": [
+    "AB",
+    "BA",
+    "AB",
+    "BA",
+    "AB",
+    "BA",
+    "AB",
+    "BA",
+    "AB",
+    "BA",
+    "AB",
+    "BA",
+    "AB",
+    "BA",
+    "AB",
+    "BA",
+    "AB",
+    "BA",
+    "AB",
+    "BA",
+    "AB"
+  ],
+  "target_sample_ms": 150,
+  "relative_iqr_retry_threshold": 0.05,
+  "maximum_retries_per_size": 1,
+  "total_runtime_budget_seconds": 1800
+}

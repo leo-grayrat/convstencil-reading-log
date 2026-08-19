@@ -40,6 +40,34 @@ Only the documented capability probe, correctness case, and two fixed problem
 sizes may run. Total GPU test time is capped at 30 minutes. The full upstream
 benchmark suite and unbounded parameter searches are out of scope.
 
+## Reproduction
+
+The capability probe, fixed correctness checks, and benchmark plan are exposed
+through Python runners so that PowerShell is not required:
+
+```text
+python scripts/run_wmma_probe.py --output-directory tests/.tmp/wmma-probe
+python scripts/run_correctness.py --kernel baseline --height 32 --width 448 --output-directory tests/.tmp/baseline
+python scripts/run_correctness.py --kernel variant --height 32 --width 448 --output-directory tests/.tmp/variant
+python scripts/run_benchmark.py --output-directory results/latest --plan-only
+python scripts/run_benchmark.py --output-directory results/latest
+```
+
+The last command launches the two fixed GPU measurements and therefore must
+only be used within the documented runtime budget. Figures can be regenerated
+without launching the GPU:
+
+```text
+python scripts/plot_results.py --results-directory results/rtx5060-2026-08-20
+```
+
+## Recorded result
+
+The RTX 5060 Laptop run is documented in
+[`results/rtx5060-2026-08-20/REPORT.md`](results/rtx5060-2026-08-20/REPORT.md).
+Across the two fixed sizes, the no-overlap variant reached 0.875--0.881 of the
+baseline's useful throughput.
+
 ## Repository boundaries
 
 All generated sources and lightweight results stay under this experiment
