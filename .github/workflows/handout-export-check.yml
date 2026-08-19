@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - feat/roadmap-latex-handout-export
+  pull_request:
+    branches:
+      - feat/roadmap-latex-handout-export
 
 jobs:
   verify:
