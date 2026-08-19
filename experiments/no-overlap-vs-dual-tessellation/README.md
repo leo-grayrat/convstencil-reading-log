@@ -68,12 +68,31 @@ The equal-block probe is a bounded diagnostic run: both kernels launch the
 same 7168 blocks so their per-block cost can be separated from the 64-versus-56
 useful-output geometry.
 
+The separate `k=8` experiment keeps the original `k=7` sources unchanged and
+compares a dual-plane paper-style kernel against the original no-overlap idea
+at one fixed size:
+
+```text
+python scripts/run_k8_experiment.py --output-directory tests/.tmp/k8-plan --plan-only
+python scripts/run_k8_experiment.py --output-directory tests/.tmp/k8-static --static-only
+python scripts/run_k8_experiment.py --output-directory results/k8-rtx5060-2026-08-20
+```
+
+The full command is capped at ten minutes. It stops before timing if either
+the static DMMA gate or the two `32x64` CPU-reference correctness cases fail.
+
 ## Recorded result
 
 The RTX 5060 Laptop run is documented in
 [`results/rtx5060-2026-08-20/REPORT.md`](results/rtx5060-2026-08-20/REPORT.md).
 Across the two fixed sizes, the no-overlap variant reached 0.875--0.881 of the
 baseline's useful throughput.
+
+The fixed `k=8` follow-up is documented in
+[`results/k8-rtx5060-2026-08-20/REPORT.md`](results/k8-rtx5060-2026-08-20/REPORT.md).
+At `1024x7168`, both k=8 kernels use the same block and DMMA counts; the
+no-overlap kernel reached 1.0270 of the same-k baseline throughput. This is a
+within-k comparison, not a direct k=7-to-k=8 speedup claim.
 
 ## Repository boundaries
 
