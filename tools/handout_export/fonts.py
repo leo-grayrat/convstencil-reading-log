@@ -35,6 +35,7 @@ FONT_SETUP = r"""
   \PackageError{handout-fonts}{Missing font: FandolFang-Regular}{Install the required Fandol font.}%
 }
 \setCJKmainfont[BoldFont=FandolSong-Bold.otf]{FandolSong-Regular.otf}
+\xeCJKsetup{CJKmath=true}
 \newCJKfontfamily\handoutkai[BoldFont=FandolSong-Bold.otf]{FandolKai-Regular.otf}
 \newfontfamily\handoutclosinglatin[BoldFont=FandolSong-Bold.otf]{FandolKai-Regular.otf}
 \newCJKfontfamily\handoutfang{FandolFang-Regular.otf}
