@@ -5,7 +5,7 @@ import textwrap
 from typing import Any
 
 from .fonts import FONT_SETUP
-from .inline import escape_text, render_inline
+from .inline import render_inline
 from .model import Slide
 
 
@@ -127,8 +127,7 @@ def _strip_math_delimiters(lines: list[str]) -> list[str] | None:
     if len(lines) == 1:
         if last_pos == first_pos:
             return None
-        inner = first[first_pos + 2 : last_pos]
-        return [inner]
+        return [first[first_pos + 2 : last_pos]]
     out = [first[first_pos + 2 :], *lines[1:-1], last[:last_pos]]
     while out and not out[0].strip():
         out.pop(0)
@@ -180,6 +179,11 @@ def _render_display_math(lines: list[str]) -> str:
     return "\\[\n" + body + "\n\\]"
 
 
+def _render_closing_text(lines: list[str]) -> str:
+    rendered = r"\\".join(render_inline(x.strip()) for x in lines if x.strip())
+    return r"\begin{closingquote}" + "\n" + rendered + "\n" + r"\end{closingquote}"
+
+
 def _render_quote(lines: list[str]) -> str:
     cleaned: list[str] = []
     for line in lines:
@@ -192,9 +196,10 @@ def _render_quote(lines: list[str]) -> str:
         else:
             cleaned.append(stripped)
     joined = "\n".join(cleaned).strip()
-    env = "closingquote" if _KANA_RE.search(joined) else "paperquote"
+    if _KANA_RE.search(joined):
+        return _render_closing_text(cleaned)
     rendered = r"\\".join(render_inline(x) for x in joined.splitlines())
-    return rf"\begin{{{env}}}" + "\n" + rendered + "\n" + rf"\end{{{env}}}"
+    return r"\begin{paperquote}" + "\n" + rendered + "\n" + r"\end{paperquote}"
 
 
 def _render_fence(lines: list[str], start: int) -> tuple[str, int]:
@@ -311,6 +316,20 @@ def _render_list(
             i += 1
             continue
 
+        if _KANA_RE.search(stripped):
+            closing_lines = [stripped]
+            i += 1
+            while i < len(lines):
+                nxt = lines[i]
+                nxt_strip = nxt.strip()
+                nxt_indent = len(nxt) - len(nxt.lstrip(" \t"))
+                if not nxt_strip or nxt_indent <= stack[-1][0] or _is_special_start(nxt):
+                    break
+                closing_lines.append(nxt_strip)
+                i += 1
+            out.append(_render_closing_text(closing_lines))
+            continue
+
         out.append(render_inline(stripped))
         i += 1
 
@@ -382,8 +401,11 @@ def _render_lines(lines: list[str], prepared_assets: dict[str, Any] | None) -> s
         while i < len(lines) and not _is_special_start(lines[i]):
             para.append(lines[i].strip())
             i += 1
-        out.append(render_inline(" ".join(para)))
-        out.append(r"\par")
+        if _KANA_RE.search("\n".join(para)):
+            out.append(_render_closing_text(para))
+        else:
+            out.append(render_inline(" ".join(para)))
+            out.append(r"\par")
 
     return "\n".join(out)
 
