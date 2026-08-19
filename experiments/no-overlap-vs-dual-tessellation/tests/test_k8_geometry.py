@@ -6,7 +6,7 @@ import unittest
 SCRIPTS_DIRECTORY = Path(__file__).resolve().parent.parent / "scripts"
 sys.path.insert(0, str(SCRIPTS_DIRECTORY))
 
-from k8_geometry import comparison_geometry  # noqa: E402
+from k8_geometry import comparison_geometry, input_leading_dimension  # noqa: E402
 
 
 class K8GeometryTests(unittest.TestCase):
@@ -68,6 +68,11 @@ class K8GeometryTests(unittest.TestCase):
             comparison_geometry(height=33, width=7168)
         with self.assertRaisesRegex(ValueError, "32 rows and 64 columns"):
             comparison_geometry(height=1024, width=7000)
+
+    def test_input_leading_dimension_preserves_fp64_wmma_store_alignment(self) -> None:
+        self.assertEqual(input_leading_dimension(64), 76)
+        self.assertEqual(input_leading_dimension(7168), 7180)
+        self.assertEqual(input_leading_dimension(64) % 4, 0)
 
 
 if __name__ == "__main__":

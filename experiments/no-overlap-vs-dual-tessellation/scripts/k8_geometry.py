@@ -3,6 +3,13 @@
 from __future__ import annotations
 
 
+def input_leading_dimension(width: int) -> int:
+    if width <= 0:
+        raise ValueError("width must be positive")
+    minimum_columns = width + 9
+    return ((minimum_columns + 3) // 4) * 4
+
+
 def comparison_geometry(*, height: int, width: int) -> dict[str, dict[str, object]]:
     block_rows = 32
     block_columns = 64

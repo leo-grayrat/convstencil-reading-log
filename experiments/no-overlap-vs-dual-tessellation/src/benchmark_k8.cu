@@ -399,10 +399,15 @@ void validate_dimensions(int height, int width) {
     }
 }
 
+int input_leading_dimension(int width) {
+    const int minimum_columns = width + kStencilLength + 1;
+    return ((minimum_columns + 3) / 4) * 4;
+}
+
 int run_correctness(const std::string& kernel, int height, int width) {
     validate_dimensions(height, width);
     const int rows = height + kStencilLength - 1;
-    const int columns = width + kStencilLength + 1;
+    const int columns = input_leading_dimension(width);
     const std::vector<double> input = make_input(rows, columns);
     const std::vector<double> weights = make_weights();
     const std::vector<double> weight_matrices = make_weight_matrices(weights);
@@ -503,7 +508,7 @@ int run_measurement(int height, int width) {
     constexpr int kPairCount = 21;
     validate_dimensions(height, width);
     const int rows = height + kStencilLength - 1;
-    const int columns = width + kStencilLength + 1;
+    const int columns = input_leading_dimension(width);
     const std::vector<double> input = make_input(rows, columns);
     const std::vector<double> weights = make_weights();
     const std::vector<double> weight_matrices = make_weight_matrices(weights);
