@@ -314,10 +314,43 @@ $$
 ## 实际上……
 
 - 方法一对应 `TCStencil` 方法。
-  - 此方法不适用于我们今天研究所用的硬件，只能用在方阵情况下。
+  - 此方法不适用于我们今天研究所用的硬件，只能用在校对成的情况下。
+  
+  - 硬件问题稍后会提及，简而言之，其只适用于单精度 FP16 运算，不适用于双精度 FP64 运算。
+  
+    > `TCStencil` is constrained to symmetric MM on FP16 Tensor Cores (i.e. matrix multiplication of matrices with the same shape), while most stencil computation necessitates FP64 precision and only specific asymmetric MM is supported on FP64 Tensor Cores.
+  
   - 不过我们稍后还会回来探讨这个……
+  
 - 方法二对应 `im2row` 方法
   - 但是从各种意义上说，这种方法都太冗余了……
+  - 为什么这么说呢？
+
+## 卷积……
+
+实际上，这里的运算和**卷积**很像。
+
+二维窗口在矩阵上滑动、跟对应权重相乘、得到结果累加输出……
+
+上面方法二实际可以认为就是迁移卷积计算方法到 stencil。
+
+![动图](./assets/v2-15fea61b768f7561648dbea164fcb75f_720w.webp)
+
+既然如此，那为什么说方法二有问题呢？卷积在各领域的广泛使用不必多说啊……
+
+## ……但不够卷
+
+卷积中，一般卷积核不会只有一个，也就是说会有多套权重。
+
+正因如此，卷积中的权重块是矩阵，而不是 $1\cross n$ 的**向量**。
+
+卷积之所以能够如此便利地计算，就是因为转化成了**矩阵乘法**，可以套进对应大小的矩阵计算单元中。
+
+但向量就没这么好的事情了。不同 stencil 之间的向量乘法也不能合并。
+
+所以权重向量只能占据硬件提供的矩阵中的**一列**！
+
+而硬件设计针对稠密矩阵乘法，不会管你 0 不 0 的，所以仍然会浪费大量计算资源……
 
 ## 从方法二出发
 
@@ -463,9 +496,92 @@ $$
 \end{align}
 $$
 
+先看第一行的部分：
+$$
+\begin{align}
+
+\mathbf{a}=\mathbf{x}_0 =&
+\begin{bmatrix}
+{\color{red}1} & {\color{red}2} & {\color{red}3}
+\dots
+\end{bmatrix}
+\\
+
+
+\mathbf{x}_1 =&
+\begin{bmatrix}
+&\;\;{\color{red}2} & {\color{red}3} & {\color{blue}4} 
+\dots
+\end{bmatrix}
+\\
+
+
+\mathbf{x}_2 =&
+\begin{bmatrix}
+&&\;\;\;\;{\color{red}3} & {\color{blue}4} & {\color{blue}5} 
+\dots
+\end{bmatrix}
+\\
+
+
+\mathbf{b}=\mathbf{x}_3 =&
+\begin{bmatrix}
+&&&\;\;\;\;\;\;{\color{blue}4} & {\color{blue}5} & {\color{blue}6} 
+\dots
+\end{bmatrix}
+
+\end{align}
+$$
+由于这种滑动窗口结构，所以事实上出现了 $AAA\to AAB\to ABB\to BBB$ 的样式。
+
+因此， $\mathbf a$ 和 $\mathbf b$ 对应的计算结果中的项在其他窗口 stencil 计算结果中也有出现！
+$$
+\begin{align}
+r_0=\textcolor{red}1a+\textcolor{red}2b + \textcolor{red}{3}&c\\
+r_1=\textcolor{red}2a+\textcolor{red}{3}&b+\textcolor{blue}{4}c\\
+r_2=\textcolor{red}{3}&a+\textcolor{blue}{4}b+\textcolor{blue}5c\\
+r&_3=\textcolor{blue}{4}a+\textcolor{blue}5b+\textcolor{blue}6c\\
+\end{align}
+$$
+
+所以，这些计算结果可以由 $(1,2,3)$ 和 $(4,5,6)$ **线性表示**！
+$$
+\begin{align}
+&r_0=(1,2,3)·(a,b,c)& +&(4,5,6)·\;\;\;\;\mathbf 0\\
+&r_1=(1,2,3)·(0,a,b)& +&(4,5,6)·(c,0,0)\\
+&r_2=(1,2,3)·(0,0,a)& +&(4,5,6)·(b,c,0)\\
+&r_3=(1,2,3)·\;\;\;\;\mathbf 0 &+&(4,5,6)·(a,b,c)
+\end{align}
+$$
+
+## Dual Tessellation	双重拼接
 
 $$
-W_A = 
+{\color{red}W_{A1}}= 
+\begin{bmatrix}
+a & 0 & 0 & 0 \\
+b & a & 0 & 0 \\
+c & b & a & 0
+\end{bmatrix}
+
+{\color{blue}W_{B1}} = 
+\begin{bmatrix}
+0 & c & b & a \\
+0 & 0 & c & b \\
+0 & 0 & 0 & c
+\end{bmatrix}
+$$
+
+把上面的线性变换的系数向量部分写成矩阵，然后就可以得到：
+$$
+\mathbf aW_{A1}+\mathbf b W_{B1}=\mathbf r_1
+$$
+很特别的是，这样构造出来的 A B 权重矩阵都是**三角矩阵**。这也是窗口滑动的体现之一。
+
+如果把多行的结果放到一起，就会是这样：
+
+$$
+{\color{red}W_A}= 
 \begin{bmatrix}
 w_0 & 0 & 0 & 0 \\
 w_1 & w_0 & 0 & 0 \\
@@ -478,7 +594,7 @@ w_7 & w_6 & 0 & 0 \\
 w_8 & w_7 & w_6 & 0
 \end{bmatrix}
 
-W_B = 
+{\color{blue}W_B} = 
 \begin{bmatrix}
 0 & w_2 & w_1 & w_0 \\
 0 & 0 & w_2 & w_1 \\
@@ -490,16 +606,273 @@ W_B =
 0 & 0 & w_8 & w_7 \\
 0 & 0 & 0 & w_8
 \end{bmatrix}
+\\\\
+\mathbf a{\color{red}{W_A}}+\mathbf b {\color{blue}{W_B}}=\mathbf r
+$$
+
+这就是本文 $\text{ConvStencil}$ 的中心方法—— AB 矩阵双重拼接！
+
+## 零冗余？
+
+刚刚只是一A一B的情况，如果更长呢？
+
+按着之前的想法，我们只要把矩阵按照 stencil 一行的长度一个个切开就可以了，这样所有滑动窗口的信息都可以从一个个 A B 矩阵中得知了，完全不浪费信息……
+
+## 但是……
+
+如果这样分割 A B 矩阵：
+$$
+\begin{align}
+
+\mathbf{a}=\mathbf{x}_0 =&
+\begin{bmatrix}
+{\color{red}1} & {\color{red}2} & {\color{red}3}
+\dots
+\end{bmatrix}
+\\
+
+
+\mathbf{x}_1 =&
+\begin{bmatrix}
+&\;\;{\color{red}2} & {\color{red}3} & {\color{blue}4} 
+\dots
+\end{bmatrix}
+\\
+
+
+\mathbf{x}_2 =&
+\begin{bmatrix}
+&&\;\;\;\;{\color{red}3} & {\color{blue}4} & {\color{blue}5} 
+\dots
+\end{bmatrix}
+\\
+
+
+\mathbf{b}=\mathbf{x}_3 =&
+\begin{bmatrix}
+&&&\;\;\;\;\;\;{\color{blue}4} & {\color{blue}5} & {\color{blue}6} 
+\dots
+\end{bmatrix}
+
+\end{align}
+$$
+假设这里后续还有数据，那么就需要延续这样分块，交换一下 a b 的位置，让旧 b 变为新 a ，接着计算。新的一块理应是 $7\;8\;9$ 。
+
+让我们 copy 一下：
+$$
+\begin{align}
+
+\mathbf{a}=\mathbf{x}_3 =&
+\begin{bmatrix}
+{\color{red}4} & {\color{red}5} & {\color{red}6}
+\dots
+\end{bmatrix}
+\\
+
+
+\mathbf{x}_4 =&
+\begin{bmatrix}
+&\;\;{\color{red}5} & {\color{red}6} & {\color{blue}7} 
+\dots
+\end{bmatrix}
+\\
+
+
+\mathbf{x}_5 =&
+\begin{bmatrix}
+&&\;\;\;\;{\color{red}6} & {\color{blue}7} & {\color{blue}8} 
+\dots
+\end{bmatrix}
+\\
+
+
+\mathbf{b}=\mathbf{x}_6 =&
+\begin{bmatrix}
+&&&\;\;\;\;\;\;{\color{blue}7} & {\color{blue}8} & {\color{blue}9} 
+\dots
+\end{bmatrix}
+
+\end{align}
+$$
+有没有发现不对劲？
+
+## 植树问题
+
+$\mathbf{x}_3$ **被算了两遍**！
+
+```CPP
+第0段：●─────●
+      1 2 3 4 5 6 7
+第1段：      ●─────●
+```
+
+就像植树问题一样：
+
+- 如果我们中间每一段都这样处理首尾，那么中间每个节点都会被算两次；
+- 如果每一段都只处理首节点和尾节点，那么整体的首节点和尾节点不会被计算！
+- 如果打补丁，只有开头/结尾段处理首尾节点、其他都只处理一个，那破坏了计算统一的范式……
+  - 我们稍后会回到这里！
+
+看来完全无冗余是不可行的，那怎么办呢？加回一点冗余吗？怎么加呢？
+
+## →
+
+还是回到上面那个植树：
+
+```CPP
+第0段：●─────●
+      1 2 3 4 5 6 7 8
+第1段：        ●─────●
+```
+
+把新一段的起始点往右移一格不就行了？
+
+此前，新一段的起始，也就是新 a ，来自于上一步的 b 。
+
+现在这样改动后， a 就不能再抄作业了，得自己读入 b 后面一个窗口的信息。
+
+```CPP
+A：
+0 1 2 | 4 5 6 | 8 9 10 ...
+B：
+      3 4 5 | 7 8 9 | ...
+```
+
+~~假设模板长度为 $k$ ，那么一组 a b 可以构造出 $k+1$ 个输出（0起始~3起始），但是因为 a 不能抄 b 的作业，导致得存 $2k$ 个数据，也就是两段模板（0 1 2 3 4 5）。~~
+
+数据是每 K + 1 个长度为一个循环的。
+
+我们忽略一开始的 K + 1 个数据（这种计算一般有非常长的数据，开头一点不重要），只看其中的一段，会发现 B 在前面的前 K 个，A 在后 K 个，共存了 2K 的数据，但实际上长度只有 K + 1 。
+
+所以：
+$$
+\dfrac{数据量}{原始输入}=\dfrac{2k}{k+1}
+$$
+
+## 上公式
+
+怎么知道数据具体放在 A/B 矩阵中哪里呢？
+
+先设原输入元素的位置：
+$$
+X=[x,y]^\top
+$$
+
+---
+
+```CPP
+A：
+0 1 2 | 4 5 6 | 8 9 10 ...
+B：
+      3 4 5 | 7 8 9 | ...
+```
+
+首先需要牢记住 $k+1$ 个数据为一个循环。
+$$
+Y = \text{stencil2row}_A(X) =
+\begin{bmatrix}
+\left\lfloor \frac{y}{k+1} \right\rfloor \\
+kx + y \mod (k+1)
+\end{bmatrix}.
+\\
+其中\;(y+1)\mod (k+1)\ne 0
+$$
+
+- 
+- 丢掉第 k 处的数据（不属于 A 的范围）
+
+$$
+Y = \text{stencil2row}_B(X) =
+\begin{bmatrix}
+\left\lfloor \frac{y-k}{k+1} \right\rfloor \\
+kx + (y-k) \mod (k+1)
+\end{bmatrix}.
 $$
 
 
-## 拓广
 
-实际上，这里的运算和**卷积**很像。
+## 硬件限制
 
-二维窗口在矩阵上滑动、跟对应权重相乘、得到结果累加输出……
 
-上面方法二实际可以认为就是迁移卷积计算方法到 stencil。
 
-![动图](./assets/v2-15fea61b768f7561648dbea164fcb75f_720w.webp)
+## 那么，代价是什么呢？
+
+> 1. A significant number of repetitive offset calculations for memory access arise, leading to conflicts with standard stencil computations. These conflicts consume computational resources and result in performance degradation.
+> 2. A multitude of conditional branches and bank conflicts exist in layout transformation, leading to severe warp divergence and serial memory access
+
+因此采用了一些很典型的 HPC/GPU 优化思路。
+
+## 算法自身问题的优化
+
+- Lookup Table
+
+  除法取模本身就是慢速的运算，而这么多数如果每个数都让 GPU 算一遍……
+
+  鉴于数据排布（如 $A\;B$ 矩阵哪里空哪里有数据）都是一致的，直接在 CPU 中算出各个局部位置对应的目标地址，存到查找表中。
+
+  ---
+
+- Dirty Bits Padding
+
+  在把权重分配到 $A\;B$ 矩阵的时候，需要做很多判断：
+
+  ```CPP
+  if(<belongs to A>)	{
+      lookupTable.find();	// 查表得到真正位置
+      A.add();			// 写入
+  }
+     
+  else{
+      ; // 什么都不做
+  }				
+  ```
+
+  但是，我们这种高性能运算显然是要**并行**的。
+
+  如果线程里面有的满足条件，有的不满足，那么不满足的就要等满足的写完才能继续，这样就会降低并行的效率。
+
+  所以说，我们不妨让他们都做同一件事情，都把元素写进去，只是：满足的写到 A，不满足的写到随便哪个垃圾位置里面。这样就可以实现完美的并行。
+
+  ```CPP
+  else{
+      lookupTable.find(trash);	// 查表得到垃圾位置
+      trash.add();			// 写入垃圾位置
+  }				
+  ```
+
+## ……也有通用的优化
+
+- 每行加空位
+
+  每行占 266 个存储组的 $A$ 矩阵 $\implies$ 268 个存储组
+
+  为什么要加两个空位？
+
+  因为内存银行上只有 16 个空位（当然每个存储组很深），同一个银行不能并行被两个线程读取；
+
+  我们一次要从每一行取 4 个数据，而 $266 \% 16 = 10$ 要每次偏移 10 格……
+
+  ![image-20260819181154984](./assets/image-20260819181154984.png)
+
+  ![image-20260819182255279](./assets/image-20260819182255279.png)
+
+---
+
+- 不完整生成 A/B
+
+  原始输入 → 读当前这一小块 → 直接在片上临时摆成当前需要的 A/B 小块 → 马上计算 → 丢掉
+
+  “边读边构造”（共享内存比全局内存快很多）
+
+- 时间步融合
+
+  较小的 stencil 放在固定尺寸的矩阵中仍会有不少空位，可以把连续几步计算合起来，最终结果依赖的领域更大。
+
+  增加单次有效的工作密度。
+
+## 大功告成！
+
+这就是 $\text{ConvStencil}$ 的主要算法了。
+
+实际上可以基于简单的线性变换推出，并不像论文本身显示得那么突然！
 
