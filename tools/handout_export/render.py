@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+import textwrap
 from typing import Any
 
 from .fonts import FONT_SETUP
@@ -203,10 +204,12 @@ def _render_fence(lines: list[str], start: int) -> tuple[str, int]:
     code: list[str] = []
     i = start + 1
     while i < len(lines) and not lines[i].lstrip().startswith(token[0] * len(token)):
-        code.append(lines[i].lstrip() if lines[start].startswith((" ", "\t")) else lines[i])
+        code.append(lines[i])
         i += 1
     if i < len(lines):
         i += 1
+    if lines[start].startswith((" ", "\t")):
+        code = textwrap.dedent("\n".join(code)).splitlines()
     return (
         r"\begin{Verbatim}[fontsize=\small]"
         + "\n"
