@@ -1,0 +1,54 @@
+{
+  "generated_at": "2026-08-19T17:32:03.560354+00:00",
+  "elapsed_seconds": 20.33611410000003,
+  "sizes": [
+    {
+      "height": 1024,
+      "width": 7168,
+      "retry_used": false,
+      "baseline_repetitions": 22,
+      "variant_repetitions": 20,
+      "baseline": {
+        "median_ms": 6.011731227272727,
+        "iqr_ms": 0.003035818181817085,
+        "gstencil_per_second": 1.2209514568284965
+      },
+      "variant": {
+        "median_ms": 6.824940499999999,
+        "iqr_ms": 0.001042900000000735,
+        "gstencil_per_second": 1.075471940011785
+      },
+      "throughput_ratio": 0.8808474194423713,
+      "paired_bootstrap_95_ci": [
+        0.880740080278022,
+        0.8810934467885922
+      ],
+      "maximum_relative_iqr": 0.0005049823531772077,
+      "sample_window_pass": true
+    },
+    {
+      "height": 2048,
+      "width": 7168,
+      "retry_used": false,
+      "baseline_repetitions": 13,
+      "variant_repetitions": 11,
+      "baseline": {
+        "median_ms": 11.964785076923077,
+        "iqr_ms": 0.04399338461538349,
+        "gstencil_per_second": 1.22693921417059
+      },
+      "variant": {
+        "median_ms": 13.674199909090909,
+        "iqr_ms": 0.040689636363635984,
+        "gstencil_per_second": 1.0735592647172265
+      },
+      "throughput_ratio": 0.8749897731836306,
+      "paired_bootstrap_95_ci": [
+        0.8749426560643141,
+        0.8780537950058728
+      ],
+      "maximum_relative_iqr": 0.0036769055467812087,
+      "sample_window_pass": true
+    }
+  ]
+}

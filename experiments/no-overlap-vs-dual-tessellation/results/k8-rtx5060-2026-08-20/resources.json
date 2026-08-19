@@ -1,0 +1,18 @@
+{
+  "device": {
+    "name": "NVIDIA GeForce RTX 5060 Laptop GPU",
+    "compute_capability": "12.0"
+  },
+  "kernels": {
+    "k8_baseline": {
+      "registers_per_thread": 90,
+      "static_shared_bytes": 39936,
+      "active_blocks_per_sm": 2
+    },
+    "k8_no_overlap": {
+      "registers_per_thread": 90,
+      "static_shared_bytes": 22464,
+      "active_blocks_per_sm": 2
+    }
+  }
+}

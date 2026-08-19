@@ -1,0 +1,133 @@
+{
+  "generated_at": "2026-08-19T18:33:11.597111+00:00",
+  "elapsed_seconds": 13.667282000000341,
+  "plan": {
+    "problem_size": {
+      "height": 1024,
+      "width": 7168
+    },
+    "warmups": 5,
+    "pairs": 21,
+    "orders": [
+      "AB",
+      "BA",
+      "AB",
+      "BA",
+      "AB",
+      "BA",
+      "AB",
+      "BA",
+      "AB",
+      "BA",
+      "AB",
+      "BA",
+      "AB",
+      "BA",
+      "AB",
+      "BA",
+      "AB",
+      "BA",
+      "AB",
+      "BA",
+      "AB"
+    ],
+    "target_sample_ms": 150,
+    "timing_api": "CUDA Event",
+    "total_runtime_budget_seconds": 600
+  },
+  "geometry": {
+    "k8_baseline": {
+      "useful_outputs_per_block": 2048,
+      "blocks": 3584,
+      "dmma_per_block": 1024,
+      "total_dmma": 3670016,
+      "candidate_outputs_per_tile": 8,
+      "useful_outputs_per_tile": 8,
+      "discarded_outputs_per_block": 0,
+      "duplicate_outputs_per_block": 0,
+      "uses_output_staging": false,
+      "unique_input_elements_per_block": 2808,
+      "unique_input_elements_per_useful_output": 1.37109375,
+      "shared_input_slots_per_block": 4992,
+      "duplicate_shared_input_slots": 2184,
+      "shared_input_slots_per_useful_output": 2.4375,
+      "explicit_shared_bytes": 39936
+    },
+    "k8_no_overlap": {
+      "useful_outputs_per_block": 2048,
+      "blocks": 3584,
+      "dmma_per_block": 1024,
+      "total_dmma": 3670016,
+      "candidate_outputs_per_tile": 8,
+      "useful_outputs_per_tile": 8,
+      "discarded_outputs_per_block": 0,
+      "duplicate_outputs_per_block": 0,
+      "uses_output_staging": false,
+      "unique_input_elements_per_block": 2808,
+      "unique_input_elements_per_useful_output": 1.37109375,
+      "shared_input_slots_per_block": 2808,
+      "duplicate_shared_input_slots": 0,
+      "shared_input_slots_per_useful_output": 1.37109375,
+      "explicit_shared_bytes": 22464
+    }
+  },
+  "static": {
+    "compile_pass": true,
+    "dmma_8x8x4_static_instruction_count": 64,
+    "expected_static_instruction_count": 64,
+    "dmma_instruction_gate_pass": true
+  },
+  "correctness": {
+    "baseline": {
+      "kernel": "baseline",
+      "height": 32,
+      "width": 64,
+      "correctness_pass": true,
+      "max_abs_error": 3.552713678800501e-15
+    },
+    "no-overlap": {
+      "kernel": "no-overlap",
+      "height": 32,
+      "width": 64,
+      "correctness_pass": true,
+      "max_abs_error": 3.552713678800501e-15
+    }
+  },
+  "resources": {
+    "device": {
+      "name": "NVIDIA GeForce RTX 5060 Laptop GPU",
+      "compute_capability": "12.0"
+    },
+    "kernels": {
+      "k8_baseline": {
+        "registers_per_thread": 90,
+        "static_shared_bytes": 39936,
+        "active_blocks_per_sm": 2
+      },
+      "k8_no_overlap": {
+        "registers_per_thread": 90,
+        "static_shared_bytes": 22464,
+        "active_blocks_per_sm": 2
+      }
+    }
+  },
+  "timing": {
+    "k8_baseline": {
+      "median_ms": 7.646933666666666,
+      "iqr_ms": 0.003737555555557215,
+      "gstencil_per_second": 0.9598660482691952,
+      "average_us_per_block": 2.1336310453869047
+    },
+    "k8_no_overlap": {
+      "median_ms": 7.445839777777778,
+      "iqr_ms": 0.00059511111111199,
+      "gstencil_per_second": 0.9857896784062473,
+      "average_us_per_block": 2.0775222594246032
+    },
+    "throughput_ratio": 1.0270075498386435,
+    "paired_bootstrap_95_ci": [
+      1.026796497325465,
+      1.0272530373449988
+    ]
+  }
+}

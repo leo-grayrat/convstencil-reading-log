@@ -1,0 +1,6 @@
+{
+  "compile_pass": true,
+  "dmma_8x8x4_static_instruction_count": 64,
+  "expected_static_instruction_count": 64,
+  "dmma_instruction_gate_pass": true
+}
