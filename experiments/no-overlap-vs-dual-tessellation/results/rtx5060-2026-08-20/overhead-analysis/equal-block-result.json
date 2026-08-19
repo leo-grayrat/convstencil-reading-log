@@ -1,0 +1,43 @@
+{
+  "height": 2048,
+  "grid_columns": 112,
+  "blocks_per_kernel": 7168,
+  "warmups": 20,
+  "pairs": 21,
+  "baseline_calibration_ms": 12.0120316,
+  "variant_calibration_ms": 11.9280319,
+  "baseline_repetitions": 12,
+  "variant_repetitions": 13,
+  "samples": [
+    {"pair": 0, "order": "AB", "baseline_total_ms": 143.567719, "variant_total_ms": 154.906082},
+    {"pair": 1, "order": "BA", "baseline_total_ms": 143.604538, "variant_total_ms": 154.903198},
+    {"pair": 2, "order": "AB", "baseline_total_ms": 143.602524, "variant_total_ms": 154.89299},
+    {"pair": 3, "order": "BA", "baseline_total_ms": 143.548157, "variant_total_ms": 154.906433},
+    {"pair": 4, "order": "AB", "baseline_total_ms": 143.560989, "variant_total_ms": 154.898758},
+    {"pair": 5, "order": "BA", "baseline_total_ms": 143.5672, "variant_total_ms": 154.912064},
+    {"pair": 6, "order": "AB", "baseline_total_ms": 143.540604, "variant_total_ms": 154.891174},
+    {"pair": 7, "order": "BA", "baseline_total_ms": 143.583527, "variant_total_ms": 154.924896},
+    {"pair": 8, "order": "AB", "baseline_total_ms": 143.595581, "variant_total_ms": 154.902695},
+    {"pair": 9, "order": "BA", "baseline_total_ms": 143.538528, "variant_total_ms": 154.917282},
+    {"pair": 10, "order": "AB", "baseline_total_ms": 143.548004, "variant_total_ms": 154.909729},
+    {"pair": 11, "order": "BA", "baseline_total_ms": 143.600861, "variant_total_ms": 154.8983},
+    {"pair": 12, "order": "AB", "baseline_total_ms": 143.573502, "variant_total_ms": 154.912231},
+    {"pair": 13, "order": "BA", "baseline_total_ms": 143.66748, "variant_total_ms": 154.90947},
+    {"pair": 14, "order": "AB", "baseline_total_ms": 143.68663, "variant_total_ms": 154.92778},
+    {"pair": 15, "order": "BA", "baseline_total_ms": 143.59613, "variant_total_ms": 154.915939},
+    {"pair": 16, "order": "AB", "baseline_total_ms": 143.557632, "variant_total_ms": 154.894974},
+    {"pair": 17, "order": "BA", "baseline_total_ms": 143.596191, "variant_total_ms": 154.902435},
+    {"pair": 18, "order": "AB", "baseline_total_ms": 143.546463, "variant_total_ms": 154.903076},
+    {"pair": 19, "order": "BA", "baseline_total_ms": 143.543716, "variant_total_ms": 154.899109},
+    {"pair": 20, "order": "AB", "baseline_total_ms": 143.549759, "variant_total_ms": 154.917664}
+  ],
+  "summary": {
+    "baseline_median_ms": 11.963976583333334,
+    "variant_median_ms": 11.915852461538462,
+    "variant_to_baseline_block_cost": 0.9959775814120271,
+    "paired_bootstrap_95_ci": [
+      0.9957619845647331,
+      0.9961044486216207
+    ]
+  }
+}
