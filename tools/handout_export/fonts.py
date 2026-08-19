@@ -2,40 +2,22 @@ from __future__ import annotations
 
 
 FONT_SETUP = r"""
-% Latin: exact TeX Gyre Termes OpenType files distributed with TeX Live.
-% Using file names avoids depending on the host fontconfig database while
-% keeping XeLaTeX/fontspec on its native OpenType path.
-\IfFontExistsTF{texgyretermes-regular.otf}{}{%
-  \PackageError{handout-fonts}{Missing font: TeX Gyre Termes Regular}{Install the TeX Gyre font collection.}%
-}
-\IfFontExistsTF{texgyretermes-bold.otf}{}{%
-  \PackageError{handout-fonts}{Missing font: TeX Gyre Termes Bold}{Install the TeX Gyre font collection.}%
-}
-\IfFontExistsTF{texgyretermes-italic.otf}{}{%
-  \PackageError{handout-fonts}{Missing font: TeX Gyre Termes Italic}{Install the TeX Gyre font collection.}%
-}
-\IfFontExistsTF{texgyretermes-bolditalic.otf}{}{%
-  \PackageError{handout-fonts}{Missing font: TeX Gyre Termes Bold Italic}{Install the TeX Gyre font collection.}%
-}
+% Latin: TeX Gyre Termes files distributed with TeX Live.
+\IfFontExistsTF{[qtmr.pfb]}{}{%\n  \PackageError{handout-fonts}{Missing font: TeX Gyre Termes Regular}{Install the TeX Gyre Termes fonts.}%\n}
+\IfFontExistsTF{[qtmb.pfb]}{}{%\n  \PackageError{handout-fonts}{Missing font: TeX Gyre Termes Bold}{Install the TeX Gyre Termes fonts.}%\n}
+\IfFontExistsTF{[qtmri.pfb]}{}{%\n  \PackageError{handout-fonts}{Missing font: TeX Gyre Termes Italic}{Install the TeX Gyre Termes fonts.}%\n}
+\IfFontExistsTF{[qtmbi.pfb]}{}{%\n  \PackageError{handout-fonts}{Missing font: TeX Gyre Termes Bold Italic}{Install the TeX Gyre Termes fonts.}%\n}
 \setmainfont[
-  BoldFont=texgyretermes-bold.otf,
-  ItalicFont=texgyretermes-italic.otf,
-  BoldItalicFont=texgyretermes-bolditalic.otf
-]{texgyretermes-regular.otf}
+  BoldFont={[qtmb.pfb]},
+  ItalicFont={[qtmri.pfb]},
+  BoldItalicFont={[qtmbi.pfb]}
+]{[qtmr.pfb]}
 
 % CJK: exact Fandol OpenType files distributed with TeX Live.
-\IfFontExistsTF{FandolSong-Regular.otf}{}{%
-  \PackageError{handout-fonts}{Missing font: FandolSong-Regular}{Install the required Fandol font.}%
-}
-\IfFontExistsTF{FandolSong-Bold.otf}{}{%
-  \PackageError{handout-fonts}{Missing font: FandolSong-Bold}{Install the required Fandol font.}%
-}
-\IfFontExistsTF{FandolKai-Regular.otf}{}{%
-  \PackageError{handout-fonts}{Missing font: FandolKai-Regular}{Install the required Fandol font.}%
-}
-\IfFontExistsTF{FandolFang-Regular.otf}{}{%
-  \PackageError{handout-fonts}{Missing font: FandolFang-Regular}{Install the required Fandol font.}%
-}
+\IfFontExistsTF{FandolSong-Regular.otf}{}{%\n  \PackageError{handout-fonts}{Missing font: FandolSong-Regular}{Install the required Fandol font.}%\n}
+\IfFontExistsTF{FandolSong-Bold.otf}{}{%\n  \PackageError{handout-fonts}{Missing font: FandolSong-Bold}{Install the required Fandol font.}%\n}
+\IfFontExistsTF{FandolKai-Regular.otf}{}{%\n  \PackageError{handout-fonts}{Missing font: FandolKai-Regular}{Install the required Fandol font.}%\n}
+\IfFontExistsTF{FandolFang-Regular.otf}{}{%\n  \PackageError{handout-fonts}{Missing font: FandolFang-Regular}{Install the required Fandol font.}%\n}
 \setCJKmainfont[BoldFont=FandolSong-Bold.otf]{FandolSong-Regular.otf}
 \xeCJKsetup{CJKmath=true}
 \newCJKfontfamily\handoutkai[BoldFont=FandolSong-Bold.otf]{FandolKai-Regular.otf}
