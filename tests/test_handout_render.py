@@ -31,9 +31,6 @@ class RenderTests(unittest.TestCase):
         self.assertNotIn(r"\inserttotalframenumber", tex)
         self.assertIn(r"\begin{frame}[fragile]{A}", tex)
         self.assertIn(r"$x_1 + y_2$", tex)
-        # The source uses $$ around an align environment. Nesting align directly
-        # inside display math is invalid LaTeX, so the renderer minimally converts
-        # the inner environment to aligned while preserving the formula body.
         self.assertIn(r"\begin{aligned}", tex)
         self.assertNotIn(r"\begin{align}", tex)
 
@@ -59,8 +56,16 @@ class RenderTests(unittest.TestCase):
         tex = render_document(slides)
         self.assertIn(r"\begin{paperquote}", tex)
         self.assertIn(r"\begin{closingquote}", tex)
-        self.assertIn(r"\textbf{僕は负けないよ}".replace("负", "負"), tex)
+        self.assertIn(r"\textbf{僕は負けないよ}", tex)
         self.assertIn(r"\handoutcrossmark{}", render_inline("〇✕△□"))
+
+    def test_plain_japanese_text_also_triggers_closing_style(self):
+        slides = parse_roadmap(
+            "## End\nそばにいてくれてありがとう **僕は負けないよ**\n——〇✕△□ - 浪漫派マシュマロ\n"
+        )
+        tex = render_document(slides)
+        self.assertIn(r"\begin{closingquote}", tex)
+        self.assertIn(r"\textbf{僕は負けないよ}", tex)
 
     def test_nested_lists_are_rendered_as_latex_lists(self):
         slides = parse_roadmap(
