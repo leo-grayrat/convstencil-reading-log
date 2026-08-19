@@ -61,13 +61,18 @@ def _asset_field(asset: Any, name: str, default: Any = None) -> Any:
     return getattr(asset, name, default)
 
 
+def _latex_file_arg(path: str) -> str:
+    normalized = str(path).replace("\\", "/")
+    return r"\detokenize{" + normalized + "}"
+
+
 def _render_image(path_text: str, prepared_assets: dict[str, Any] | None) -> str:
     asset = (prepared_assets or {}).get(path_text)
     if asset is None:
         path = path_text.replace("\\", "/")
         return (
             r"\begin{center}\includegraphics[width=.92\textwidth,height=.58\textheight,keepaspectratio]{"
-            + escape_text(path)
+            + _latex_file_arg(path)
             + r"}\end{center}"
         )
 
@@ -76,7 +81,7 @@ def _render_image(path_text: str, prepared_assets: dict[str, Any] | None) -> str
         path = _asset_field(asset, "latex_path") or path_text
         return (
             r"\begin{center}\includegraphics[width=.92\textwidth,height=.58\textheight,keepaspectratio]{"
-            + escape_text(str(path).replace("\\", "/"))
+            + _latex_file_arg(str(path))
             + r"}\end{center}"
         )
 
@@ -88,7 +93,7 @@ def _render_image(path_text: str, prepared_assets: dict[str, Any] | None) -> str
     for idx, frame in enumerate(sequence):
         frame_tex.append(
             r"\includegraphics[width=.92\textwidth,height=.58\textheight,keepaspectratio]{"
-            + escape_text(str(frame).replace("\\", "/"))
+            + _latex_file_arg(str(frame))
             + "}"
         )
         if idx != len(sequence) - 1:
@@ -98,7 +103,7 @@ def _render_image(path_text: str, prepared_assets: dict[str, Any] | None) -> str
     if poster:
         poster_tex = (
             r"\makebox[0pt][l]{\includegraphics[width=.92\textwidth,height=.58\textheight,keepaspectratio]{"
-            + escape_text(str(poster).replace("\\", "/"))
+            + _latex_file_arg(str(poster))
             + r"}}"
             + "\n"
         )
@@ -114,6 +119,74 @@ def _render_image(path_text: str, prepared_assets: dict[str, Any] | None) -> str
         + "\n"
         + r"\end{center}"
     )
+
+
+_MATH_TOKEN_RE = re.compile(r"\\begin\{([^}]+)\}|\\end\{([^}]+)\}|\\\\")
+
+
+def _strip_math_delimiters(lines: list[str]) -> list[str] | None:
+    if not lines:
+        return []
+    first = lines[0]
+    last = lines[-1]
+    first_pos = first.find("$$")
+    last_pos = last.rfind("$$")
+    if first_pos < 0 or last_pos < 0:
+        return None
+    if len(lines) == 1:
+        if last_pos == first_pos:
+            return None
+        inner = first[first_pos + 2 : last_pos]
+        return [inner]
+    out = [first[first_pos + 2 :], *lines[1:-1], last[:last_pos]]
+    while out and not out[0].strip():
+        out.pop(0)
+    while out and not out[-1].strip():
+        out.pop()
+    return out
+
+
+def _single_outer_environment(lines: list[str]) -> str | None:
+    meaningful = [line.strip() for line in lines if line.strip()]
+    if len(meaningful) < 2:
+        return None
+    start = re.fullmatch(r"\\begin\{([^}]+)\}", meaningful[0])
+    end = re.fullmatch(r"\\end\{([^}]+)\}", meaningful[-1])
+    if start and end and start.group(1) == end.group(1):
+        return start.group(1)
+    return None
+
+
+def _has_top_level_linebreak(lines: list[str]) -> bool:
+    depth = 0
+    for line in lines:
+        for match in _MATH_TOKEN_RE.finditer(line):
+            begin_env, end_env = match.group(1), match.group(2)
+            if begin_env is not None:
+                depth += 1
+            elif end_env is not None:
+                depth = max(0, depth - 1)
+            elif depth == 0:
+                return True
+    return False
+
+
+def _render_display_math(lines: list[str]) -> str:
+    inner = _strip_math_delimiters(lines)
+    if inner is None:
+        return "\n".join(lines)
+    outer_env = _single_outer_environment(inner)
+    if outer_env in {"align", "align*"}:
+        body = "\n".join(inner)
+        body = body.replace(r"\begin{align*}", r"\begin{aligned}", 1)
+        body = body.replace(r"\end{align*}", r"\end{aligned}", 1)
+        body = body.replace(r"\begin{align}", r"\begin{aligned}", 1)
+        body = body.replace(r"\end{align}", r"\end{aligned}", 1)
+        return "\\[\n" + body + "\n\\]"
+    body = "\n".join(inner)
+    if _has_top_level_linebreak(inner):
+        return "\\[\n\\begin{aligned}\n" + body + "\n\\end{aligned}\n\\]"
+    return "\\[\n" + body + "\n\\]"
 
 
 def _render_quote(lines: list[str]) -> str:
@@ -253,7 +326,7 @@ def _render_lines(lines: list[str], prepared_assets: dict[str, Any] | None) -> s
                 math_lines.append(lines[i])
                 delim_count += lines[i].count("$$")
                 i += 1
-            out.extend(math_lines)
+            out.append(_render_display_math(math_lines))
             continue
 
         image = _IMAGE_RE.match(line)
