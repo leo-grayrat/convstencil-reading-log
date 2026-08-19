@@ -61,16 +61,17 @@ class BuildTests(unittest.TestCase):
             tex = tex_path.read_text(encoding="utf-8")
             self.assertIn("ok.png", tex)
 
-    def test_font_probe_supports_texlive_file_fallbacks(self):
+    def test_font_probe_uses_texlive_opentype_files(self):
         probe = _font_probe_source()
         self.assertIn("FandolSong-Regular.otf", probe)
         self.assertIn("FandolSong-Bold.otf", probe)
         self.assertIn("FandolKai-Regular.otf", probe)
         self.assertIn("FandolFang-Regular.otf", probe)
-        self.assertIn("[qtmr.pfb]", probe)
-        self.assertIn("[qtmb.pfb]", probe)
-        self.assertIn("[qtmri.pfb]", probe)
-        self.assertIn("[qtmbi.pfb]", probe)
+        self.assertIn("texgyretermes-regular.otf", probe)
+        self.assertIn("texgyretermes-bold.otf", probe)
+        self.assertIn("texgyretermes-italic.otf", probe)
+        self.assertIn("texgyretermes-bolditalic.otf", probe)
+        self.assertNotIn("qtmr.pfb", probe)
         self.assertNotIn("tgtermes.sty", probe)
         self.assertNotIn(r"\IfFontExistsTF{FandolSong-Regular}{", probe)
 
