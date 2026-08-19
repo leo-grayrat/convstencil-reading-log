@@ -31,7 +31,11 @@ class RenderTests(unittest.TestCase):
         self.assertNotIn(r"\inserttotalframenumber", tex)
         self.assertIn(r"\begin{frame}[fragile]{A}", tex)
         self.assertIn(r"$x_1 + y_2$", tex)
-        self.assertIn(r"\begin{align}", tex)
+        # The source uses $$ around an align environment. Nesting align directly
+        # inside display math is invalid LaTeX, so the renderer minimally converts
+        # the inner environment to aligned while preserving the formula body.
+        self.assertIn(r"\begin{aligned}", tex)
+        self.assertNotIn(r"\begin{align}", tex)
 
     def test_current_roadmap_compatibility_macros_and_strikethrough(self):
         slides = parse_roadmap("## Compat\n$3\\cross3$ stencil。\n\n~~旧句子~~\n")
