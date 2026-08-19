@@ -333,6 +333,103 @@ double cpu_reference_at(const std::vector<double>& input,
     return result;
 }
 
+int run_resource_probe() {
+    cudaDeviceProp device_properties{};
+    cuda_check(
+        cudaGetDeviceProperties(&device_properties, 0),
+        "cudaGetDeviceProperties");
+
+    cudaFuncAttributes baseline_attributes{};
+    cudaFuncAttributes variant_attributes{};
+    cuda_check(
+        cudaFuncGetAttributes(
+            &baseline_attributes, convstencil_baseline_kernel),
+        "cudaFuncGetAttributes(baseline)");
+    cuda_check(
+        cudaFuncGetAttributes(
+            &variant_attributes, no_overlap_variant_kernel),
+        "cudaFuncGetAttributes(variant)");
+
+    int baseline_active_blocks = 0;
+    int variant_active_blocks = 0;
+    cuda_check(
+        cudaOccupancyMaxActiveBlocksPerMultiprocessor(
+            &baseline_active_blocks,
+            convstencil_baseline_kernel,
+            32 * kWarpCount,
+            0),
+        "cudaOccupancyMaxActiveBlocksPerMultiprocessor(baseline)");
+    cuda_check(
+        cudaOccupancyMaxActiveBlocksPerMultiprocessor(
+            &variant_active_blocks,
+            no_overlap_variant_kernel,
+            32 * kWarpCount,
+            0),
+        "cudaOccupancyMaxActiveBlocksPerMultiprocessor(variant)");
+
+    std::printf(
+        "{\"thread_count\":%d,"
+        "\"device\":{\"name\":\"%s\",\"compute_capability\":\"%d.%d\","
+        "\"multiprocessor_count\":%d,\"max_threads_per_sm\":%d,"
+        "\"shared_bytes_per_sm\":%zu,\"registers_per_sm\":%d},"
+        "\"kernels\":{"
+        "\"baseline\":{\"registers_per_thread\":%d,"
+        "\"static_shared_bytes\":%zu,\"local_bytes\":%zu,"
+        "\"max_threads_per_block\":%d,\"max_active_blocks_per_sm\":%d,"
+        "\"max_active_warps_per_sm\":%d},"
+        "\"variant\":{\"registers_per_thread\":%d,"
+        "\"static_shared_bytes\":%zu,\"local_bytes\":%zu,"
+        "\"max_threads_per_block\":%d,\"max_active_blocks_per_sm\":%d,"
+        "\"max_active_warps_per_sm\":%d}}}\n",
+        32 * kWarpCount,
+        device_properties.name,
+        device_properties.major,
+        device_properties.minor,
+        device_properties.multiProcessorCount,
+        device_properties.maxThreadsPerMultiProcessor,
+        device_properties.sharedMemPerMultiprocessor,
+        device_properties.regsPerMultiprocessor,
+        baseline_attributes.numRegs,
+        baseline_attributes.sharedSizeBytes,
+        baseline_attributes.localSizeBytes,
+        baseline_attributes.maxThreadsPerBlock,
+        baseline_active_blocks,
+        baseline_active_blocks * kWarpCount,
+        variant_attributes.numRegs,
+        variant_attributes.sharedSizeBytes,
+        variant_attributes.localSizeBytes,
+        variant_attributes.maxThreadsPerBlock,
+        variant_active_blocks,
+        variant_active_blocks * kWarpCount);
+    return 0;
+}
+
+void launch_selected_kernel_on_grid(
+    const std::string& kernel,
+    int height,
+    int grid_columns,
+    int leading_dimension,
+    const double* device_input,
+    double* device_output,
+    const int* device_lookup_a,
+    const int* device_lookup_b) {
+    const dim3 block(32 * kWarpCount);
+    const dim3 grid(height / kBlockRows, grid_columns);
+    if (kernel == "baseline") {
+        convstencil_baseline_kernel<<<grid, block>>>(
+            device_input,
+            device_output,
+            leading_dimension,
+            device_lookup_a,
+            device_lookup_b);
+    } else {
+        no_overlap_variant_kernel<<<grid, block>>>(
+            device_input,
+            device_output,
+            leading_dimension);
+    }
+}
+
 void launch_selected_kernel(
     const std::string& kernel,
     int height,
@@ -342,31 +439,24 @@ void launch_selected_kernel(
     double* device_output,
     const int* device_lookup_a,
     const int* device_lookup_b) {
-    const dim3 block(32 * kWarpCount);
-    if (kernel == "baseline") {
-        const dim3 grid(
-            height / kBlockRows, width / kBaselineBlockColumns);
-        convstencil_baseline_kernel<<<grid, block>>>(
-            device_input,
-            device_output,
-            leading_dimension,
-            device_lookup_a,
-            device_lookup_b);
-    } else {
-        const dim3 grid(
-            height / kBlockRows, width / kVariantBlockColumns);
-        no_overlap_variant_kernel<<<grid, block>>>(
-            device_input,
-            device_output,
-            leading_dimension);
-    }
+    const int block_columns =
+        kernel == "baseline" ? kBaselineBlockColumns : kVariantBlockColumns;
+    launch_selected_kernel_on_grid(
+        kernel,
+        height,
+        width / block_columns,
+        leading_dimension,
+        device_input,
+        device_output,
+        device_lookup_a,
+        device_lookup_b);
 }
 
-float time_kernel(
+float time_kernel_on_grid(
     const std::string& kernel,
     int repetitions,
     int height,
-    int width,
+    int grid_columns,
     int leading_dimension,
     const double* device_input,
     double* device_output,
@@ -378,10 +468,10 @@ float time_kernel(
     cuda_check(cudaEventCreate(&stop), "cudaEventCreate(stop)");
     cuda_check(cudaEventRecord(start), "cudaEventRecord(start)");
     for (int repetition = 0; repetition < repetitions; ++repetition) {
-        launch_selected_kernel(
+        launch_selected_kernel_on_grid(
             kernel,
             height,
-            width,
+            grid_columns,
             leading_dimension,
             device_input,
             device_output,
@@ -400,6 +490,30 @@ float time_kernel(
     return elapsed_ms;
 }
 
+float time_kernel(
+    const std::string& kernel,
+    int repetitions,
+    int height,
+    int width,
+    int leading_dimension,
+    const double* device_input,
+    double* device_output,
+    const int* device_lookup_a,
+    const int* device_lookup_b) {
+    const int block_columns =
+        kernel == "baseline" ? kBaselineBlockColumns : kVariantBlockColumns;
+    return time_kernel_on_grid(
+        kernel,
+        repetitions,
+        height,
+        width / block_columns,
+        leading_dimension,
+        device_input,
+        device_output,
+        device_lookup_a,
+        device_lookup_b);
+}
+
 int calibrated_repetitions(float single_launch_ms) {
     constexpr double kTargetSampleMs = 150.0;
     constexpr int kMaximumRepetitions = 1000000;
@@ -410,6 +524,157 @@ int calibrated_repetitions(float single_launch_ms) {
         static_cast<int>(std::lround(kTargetSampleMs / single_launch_ms)),
         1,
         kMaximumRepetitions);
+}
+
+int run_equal_block_probe(int height, int grid_columns) {
+    constexpr int kWarmupCount = 20;
+    constexpr int kPairCount = 21;
+    if (height <= 0 || height % kBlockRows != 0 || grid_columns <= 0) {
+        throw std::invalid_argument(
+            "equal-block probe requires tiled height and positive grid columns");
+    }
+
+    const int rows = height + 2 * kHalo;
+    const int columns =
+        grid_columns * kBaselineBlockColumns + 2 * kHalo + 2;
+    const size_t element_count = static_cast<size_t>(rows) * columns;
+    const size_t byte_count = element_count * sizeof(double);
+    const std::vector<double> input = make_input(rows, columns);
+    const std::vector<double> weights = make_weights();
+    const std::vector<double> weight_matrices = make_weight_matrices(weights);
+    std::vector<int> lookup_a(kDataBlockRows * kDataBlockColumns);
+    std::vector<int> lookup_b(kDataBlockRows * kDataBlockColumns);
+    make_baseline_lookups(lookup_a, lookup_b);
+
+    double* device_input = nullptr;
+    double* device_output = nullptr;
+    int* device_lookup_a = nullptr;
+    int* device_lookup_b = nullptr;
+    cuda_check(cudaMalloc(&device_input, byte_count), "cudaMalloc(input)");
+    cuda_check(cudaMalloc(&device_output, byte_count), "cudaMalloc(output)");
+    cuda_check(
+        cudaMalloc(&device_lookup_a, lookup_a.size() * sizeof(int)),
+        "cudaMalloc(lookup_a)");
+    cuda_check(
+        cudaMalloc(&device_lookup_b, lookup_b.size() * sizeof(int)),
+        "cudaMalloc(lookup_b)");
+    cuda_check(
+        cudaMemcpy(device_input, input.data(), byte_count, cudaMemcpyHostToDevice),
+        "cudaMemcpy(input)");
+    cuda_check(cudaMemset(device_output, 0, byte_count), "cudaMemset(output)");
+    cuda_check(
+        cudaMemcpy(
+            device_lookup_a,
+            lookup_a.data(),
+            lookup_a.size() * sizeof(int),
+            cudaMemcpyHostToDevice),
+        "cudaMemcpy(lookup_a)");
+    cuda_check(
+        cudaMemcpy(
+            device_lookup_b,
+            lookup_b.data(),
+            lookup_b.size() * sizeof(int),
+            cudaMemcpyHostToDevice),
+        "cudaMemcpy(lookup_b)");
+    cuda_check(
+        cudaMemcpyToSymbol(
+            device_weight_matrices,
+            weight_matrices.data(),
+            weight_matrices.size() * sizeof(double)),
+        "cudaMemcpyToSymbol(weights)");
+
+    for (int warmup = 0; warmup < kWarmupCount; ++warmup) {
+        launch_selected_kernel_on_grid(
+            "baseline",
+            height,
+            grid_columns,
+            columns,
+            device_input,
+            device_output,
+            device_lookup_a,
+            device_lookup_b);
+        launch_selected_kernel_on_grid(
+            "variant",
+            height,
+            grid_columns,
+            columns,
+            device_input,
+            device_output,
+            device_lookup_a,
+            device_lookup_b);
+    }
+    cuda_check(cudaGetLastError(), "equal-block warmup launch");
+    cuda_check(cudaDeviceSynchronize(), "equal-block warmup synchronize");
+
+    const float baseline_calibration = time_kernel_on_grid(
+        "baseline", 1, height, grid_columns, columns, device_input,
+        device_output, device_lookup_a, device_lookup_b);
+    const float variant_calibration = time_kernel_on_grid(
+        "variant", 1, height, grid_columns, columns, device_input,
+        device_output, device_lookup_a, device_lookup_b);
+    const int baseline_repetitions =
+        calibrated_repetitions(baseline_calibration);
+    const int variant_repetitions =
+        calibrated_repetitions(variant_calibration);
+
+    std::vector<float> baseline_times(kPairCount);
+    std::vector<float> variant_times(kPairCount);
+    for (int pair = 0; pair < kPairCount; ++pair) {
+        const bool baseline_first = pair % 2 == 0;
+        const auto measure = [&](const std::string& kernel, int repetitions) {
+            return time_kernel_on_grid(
+                kernel,
+                repetitions,
+                height,
+                grid_columns,
+                columns,
+                device_input,
+                device_output,
+                device_lookup_a,
+                device_lookup_b);
+        };
+        if (baseline_first) {
+            baseline_times[pair] = measure("baseline", baseline_repetitions);
+            variant_times[pair] = measure("variant", variant_repetitions);
+        } else {
+            variant_times[pair] = measure("variant", variant_repetitions);
+            baseline_times[pair] = measure("baseline", baseline_repetitions);
+        }
+    }
+
+    std::printf(
+        "{\"height\":%d,\"grid_columns\":%d,"
+        "\"blocks_per_kernel\":%d,\"warmups\":%d,\"pairs\":%d,"
+        "\"baseline_calibration_ms\":%.9g,"
+        "\"variant_calibration_ms\":%.9g,"
+        "\"baseline_repetitions\":%d,\"variant_repetitions\":%d,"
+        "\"samples\":[",
+        height,
+        grid_columns,
+        (height / kBlockRows) * grid_columns,
+        kWarmupCount,
+        kPairCount,
+        baseline_calibration,
+        variant_calibration,
+        baseline_repetitions,
+        variant_repetitions);
+    for (int pair = 0; pair < kPairCount; ++pair) {
+        std::printf(
+            "%s{\"pair\":%d,\"order\":\"%s\","
+            "\"baseline_total_ms\":%.9g,\"variant_total_ms\":%.9g}",
+            pair == 0 ? "" : ",",
+            pair,
+            pair % 2 == 0 ? "AB" : "BA",
+            baseline_times[pair],
+            variant_times[pair]);
+    }
+    std::printf("]}\n");
+
+    cudaFree(device_input);
+    cudaFree(device_output);
+    cudaFree(device_lookup_a);
+    cudaFree(device_lookup_b);
+    return 0;
 }
 
 int run_measurement(int height, int width) {
@@ -726,17 +991,32 @@ int run_correctness(const std::string& kernel, int height, int width) {
 }  // namespace
 
 int main(int argc, char** argv) {
+    if (argc == 2 && std::string(argv[1]) == "resources") {
+        try {
+            return run_resource_probe();
+        } catch (const std::exception& error) {
+            std::fprintf(stderr, "%s\n", error.what());
+            return 1;
+        }
+    }
     if (argc != 4 ||
         (std::string(argv[1]) != "baseline" &&
          std::string(argv[1]) != "variant" &&
-         std::string(argv[1]) != "measure")) {
+         std::string(argv[1]) != "measure" &&
+         std::string(argv[1]) != "equal-block")) {
         std::fprintf(
             stderr,
-            "usage: benchmark {baseline|variant|measure} HEIGHT WIDTH\n");
+            "usage: benchmark resources | "
+            "benchmark {baseline|variant|measure} HEIGHT WIDTH | "
+            "benchmark equal-block HEIGHT GRID_COLUMNS\n");
         return 1;
     }
 
     try {
+        if (std::string(argv[1]) == "equal-block") {
+            return run_equal_block_probe(
+                std::stoi(argv[2]), std::stoi(argv[3]));
+        }
         if (std::string(argv[1]) == "measure") {
             return run_measurement(std::stoi(argv[2]), std::stoi(argv[3]));
         }

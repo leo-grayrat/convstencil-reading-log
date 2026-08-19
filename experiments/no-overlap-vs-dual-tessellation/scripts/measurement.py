@@ -6,6 +6,33 @@ import random
 import statistics
 
 
+def block_geometry(*, height: int, width: int) -> dict[str, float | int]:
+    if height <= 0 or width <= 0 or height % 32 != 0 or width % 448 != 0:
+        raise ValueError("dimensions must tile 32 rows and both output widths")
+    baseline_blocks = (height // 32) * (width // 64)
+    variant_blocks = (height // 32) * (width // 56)
+    return {
+        "baseline_blocks": baseline_blocks,
+        "variant_blocks": variant_blocks,
+        "block_count_ratio": variant_blocks / baseline_blocks,
+        "ideal_throughput_ratio": baseline_blocks / variant_blocks,
+    }
+
+
+def normalized_block_cost_ratio(
+    *,
+    baseline_ms: float,
+    variant_ms: float,
+    baseline_blocks: int,
+    variant_blocks: int,
+) -> float:
+    if baseline_ms <= 0.0 or variant_ms <= 0.0:
+        raise ValueError("timings must be positive")
+    if baseline_blocks <= 0 or variant_blocks <= 0:
+        raise ValueError("block counts must be positive")
+    return (variant_ms / baseline_ms) / (variant_blocks / baseline_blocks)
+
+
 def alternating_orders(pair_count: int) -> list[str]:
     if pair_count <= 0:
         raise ValueError("pair_count must be positive")
@@ -72,6 +99,43 @@ def summarize_pairs(
         "baseline": baseline,
         "variant": variant,
         "throughput_ratio": throughput_ratio,
+        "paired_bootstrap_95_ci": [
+            percentile(bootstrap_ratios, 0.025),
+            percentile(bootstrap_ratios, 0.975),
+        ],
+    }
+
+
+def summarize_equal_block_pairs(
+    *,
+    baseline_ms: list[float],
+    variant_ms: list[float],
+    bootstrap_samples: int,
+    random_seed: int,
+) -> dict[str, object]:
+    if not baseline_ms or len(baseline_ms) != len(variant_ms):
+        raise ValueError("baseline and variant must contain equal paired samples")
+    if any(value <= 0.0 for value in baseline_ms + variant_ms):
+        raise ValueError("timing samples must be positive")
+    if bootstrap_samples <= 0:
+        raise ValueError("bootstrap_samples must be positive")
+
+    baseline_median = statistics.median(baseline_ms)
+    variant_median = statistics.median(variant_ms)
+    generator = random.Random(random_seed)
+    pair_count = len(baseline_ms)
+    bootstrap_ratios: list[float] = []
+    for _ in range(bootstrap_samples):
+        indices = [generator.randrange(pair_count) for _ in range(pair_count)]
+        bootstrap_ratios.append(
+            statistics.median(variant_ms[index] for index in indices)
+            / statistics.median(baseline_ms[index] for index in indices)
+        )
+
+    return {
+        "baseline_median_ms": baseline_median,
+        "variant_median_ms": variant_median,
+        "variant_to_baseline_block_cost": variant_median / baseline_median,
         "paired_bootstrap_95_ci": [
             percentile(bootstrap_ratios, 0.025),
             percentile(bootstrap_ratios, 0.975),

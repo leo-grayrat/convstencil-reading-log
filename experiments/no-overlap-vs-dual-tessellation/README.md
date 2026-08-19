@@ -51,6 +51,8 @@ python scripts/run_correctness.py --kernel baseline --height 32 --width 448 --ou
 python scripts/run_correctness.py --kernel variant --height 32 --width 448 --output-directory tests/.tmp/variant
 python scripts/run_benchmark.py --output-directory results/latest --plan-only
 python scripts/run_benchmark.py --output-directory results/latest
+python scripts/run_resource_probe.py --output-directory tests/.tmp/resource-probe
+python scripts/run_equal_block_probe.py --height 2048 --grid-columns 112 --output-directory tests/.tmp/equal-block-probe
 ```
 
 The last command launches the two fixed GPU measurements and therefore must
@@ -60,6 +62,11 @@ without launching the GPU:
 ```text
 python scripts/plot_results.py --results-directory results/rtx5060-2026-08-20
 ```
+
+The resource probe queries CUDA Runtime attributes without launching a kernel.
+The equal-block probe is a bounded diagnostic run: both kernels launch the
+same 7168 blocks so their per-block cost can be separated from the 64-versus-56
+useful-output geometry.
 
 ## Recorded result
 
