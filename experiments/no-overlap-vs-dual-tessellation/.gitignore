@@ -1,0 +1,8 @@
+build/
+*.exe
+*.obj
+*.exp
+*.lib
+*.pdb
+*.ncu-rep
+results/latest/
