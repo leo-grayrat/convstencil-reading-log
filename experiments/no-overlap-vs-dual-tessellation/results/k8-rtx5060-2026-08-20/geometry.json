@@ -1,0 +1,36 @@
+{
+  "k8_baseline": {
+    "useful_outputs_per_block": 2048,
+    "blocks": 3584,
+    "dmma_per_block": 1024,
+    "total_dmma": 3670016,
+    "candidate_outputs_per_tile": 8,
+    "useful_outputs_per_tile": 8,
+    "discarded_outputs_per_block": 0,
+    "duplicate_outputs_per_block": 0,
+    "uses_output_staging": false,
+    "unique_input_elements_per_block": 2808,
+    "unique_input_elements_per_useful_output": 1.37109375,
+    "shared_input_slots_per_block": 4992,
+    "duplicate_shared_input_slots": 2184,
+    "shared_input_slots_per_useful_output": 2.4375,
+    "explicit_shared_bytes": 39936
+  },
+  "k8_no_overlap": {
+    "useful_outputs_per_block": 2048,
+    "blocks": 3584,
+    "dmma_per_block": 1024,
+    "total_dmma": 3670016,
+    "candidate_outputs_per_tile": 8,
+    "useful_outputs_per_tile": 8,
+    "discarded_outputs_per_block": 0,
+    "duplicate_outputs_per_block": 0,
+    "uses_output_staging": false,
+    "unique_input_elements_per_block": 2808,
+    "unique_input_elements_per_useful_output": 1.37109375,
+    "shared_input_slots_per_block": 2808,
+    "duplicate_shared_input_slots": 0,
+    "shared_input_slots_per_useful_output": 1.37109375,
+    "explicit_shared_bytes": 22464
+  }
+}

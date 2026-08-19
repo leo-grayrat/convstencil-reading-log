@@ -1,0 +1,13 @@
+build/
+*.exe
+*.obj
+*.exp
+*.lib
+*.pdb
+*.ncu-rep
+*.cubin
+*.sass
+results/latest/
+tests/.tmp/
+__pycache__/
+*.pyc

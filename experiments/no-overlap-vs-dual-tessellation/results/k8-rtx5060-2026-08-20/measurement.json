@@ -1,0 +1,139 @@
+{
+  "height": 1024,
+  "width": 7168,
+  "blocks_per_kernel": 3584,
+  "warmups": 5,
+  "pairs": 21,
+  "baseline_calibration_ms": 8.56752014,
+  "no_overlap_calibration_ms": 8.32575989,
+  "baseline_repetitions": 18,
+  "no_overlap_repetitions": 18,
+  "samples": [
+    {
+      "pair": 0,
+      "order": "AB",
+      "baseline_total_ms": 146.540131,
+      "no_overlap_total_ms": 134.032867
+    },
+    {
+      "pair": 1,
+      "order": "BA",
+      "baseline_total_ms": 137.584061,
+      "no_overlap_total_ms": 134.029861
+    },
+    {
+      "pair": 2,
+      "order": "AB",
+      "baseline_total_ms": 137.623642,
+      "no_overlap_total_ms": 134.054565
+    },
+    {
+      "pair": 3,
+      "order": "BA",
+      "baseline_total_ms": 137.712128,
+      "no_overlap_total_ms": 134.021637
+    },
+    {
+      "pair": 4,
+      "order": "AB",
+      "baseline_total_ms": 137.689148,
+      "no_overlap_total_ms": 134.027618
+    },
+    {
+      "pair": 5,
+      "order": "BA",
+      "baseline_total_ms": 137.596664,
+      "no_overlap_total_ms": 134.013916
+    },
+    {
+      "pair": 6,
+      "order": "AB",
+      "baseline_total_ms": 137.669952,
+      "no_overlap_total_ms": 134.032227
+    },
+    {
+      "pair": 7,
+      "order": "BA",
+      "baseline_total_ms": 137.644806,
+      "no_overlap_total_ms": 133.967133
+    },
+    {
+      "pair": 8,
+      "order": "AB",
+      "baseline_total_ms": 137.605927,
+      "no_overlap_total_ms": 134.061691
+    },
+    {
+      "pair": 9,
+      "order": "BA",
+      "baseline_total_ms": 137.614655,
+      "no_overlap_total_ms": 134.058716
+    },
+    {
+      "pair": 10,
+      "order": "AB",
+      "baseline_total_ms": 137.633026,
+      "no_overlap_total_ms": 134.028259
+    },
+    {
+      "pair": 11,
+      "order": "BA",
+      "baseline_total_ms": 137.612381,
+      "no_overlap_total_ms": 134.013474
+    },
+    {
+      "pair": 12,
+      "order": "AB",
+      "baseline_total_ms": 137.684036,
+      "no_overlap_total_ms": 134.024902
+    },
+    {
+      "pair": 13,
+      "order": "BA",
+      "baseline_total_ms": 137.626083,
+      "no_overlap_total_ms": 133.991684
+    },
+    {
+      "pair": 14,
+      "order": "AB",
+      "baseline_total_ms": 137.684479,
+      "no_overlap_total_ms": 133.966949
+    },
+    {
+      "pair": 15,
+      "order": "BA",
+      "baseline_total_ms": 137.635239,
+      "no_overlap_total_ms": 134.0233
+    },
+    {
+      "pair": 16,
+      "order": "AB",
+      "baseline_total_ms": 137.681992,
+      "no_overlap_total_ms": 134.021637
+    },
+    {
+      "pair": 17,
+      "order": "BA",
+      "baseline_total_ms": 137.645187,
+      "no_overlap_total_ms": 134.025116
+    },
+    {
+      "pair": 18,
+      "order": "AB",
+      "baseline_total_ms": 137.647202,
+      "no_overlap_total_ms": 134.022598
+    },
+    {
+      "pair": 19,
+      "order": "BA",
+      "baseline_total_ms": 137.614716,
+      "no_overlap_total_ms": 134.032349
+    },
+    {
+      "pair": 20,
+      "order": "AB",
+      "baseline_total_ms": 137.675842,
+      "no_overlap_total_ms": 134.047516
+    }
+  ]
+}

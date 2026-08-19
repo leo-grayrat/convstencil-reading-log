@@ -1,0 +1,16 @@
+{
+  "baseline": {
+    "kernel": "baseline",
+    "height": 32,
+    "width": 64,
+    "correctness_pass": true,
+    "max_abs_error": 3.552713678800501e-15
+  },
+  "no-overlap": {
+    "kernel": "no-overlap",
+    "height": 32,
+    "width": 64,
+    "correctness_pass": true,
+    "max_abs_error": 3.552713678800501e-15
+  }
+}
