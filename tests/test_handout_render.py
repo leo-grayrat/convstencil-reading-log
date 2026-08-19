@@ -59,7 +59,7 @@ class RenderTests(unittest.TestCase):
         tex = render_document(slides)
         self.assertIn(r"\begin{paperquote}", tex)
         self.assertIn(r"\begin{closingquote}", tex)
-        self.assertIn(r"\textbf{僕は負けないよ}", tex)
+        self.assertIn(r"\textbf{僕は负けないよ}".replace("负", "負"), tex)
         self.assertIn(r"\handoutcrossmark{}", render_inline("〇✕△□"))
 
     def test_nested_lists_are_rendered_as_latex_lists(self):
@@ -70,6 +70,26 @@ class RenderTests(unittest.TestCase):
         self.assertGreaterEqual(tex.count(r"\begin{itemize}"), 2)
         self.assertIn(r"\begin{enumerate}", tex)
         self.assertIn(r"quoted under inner", tex)
+
+    def test_list_continuations_keep_code_math_and_images_as_blocks(self):
+        from pathlib import Path
+        from tools.handout_export.assets import PreparedAsset
+
+        slides = parse_roadmap(
+            "## Blocks\n- item\n\n  ```CPP\n  if (x) { y++; }\n  ```\n\n  $$\n  x_1 = y_2\\\\\n  z_1 = z_2\n  $$\n\n  ![diagram](./assets/a.png)\n"
+        )
+        asset = PreparedAsset(
+            source=Path("/repo/assets/a.png"),
+            kind="direct",
+            latex_path="../../../assets/a.png",
+        )
+        tex = render_document(slides, {"./assets/a.png": asset})
+        self.assertIn(r"\begin{Verbatim}[fontsize=\small]", tex)
+        self.assertIn("if (x) { y++; }", tex)
+        self.assertIn(r"\begin{aligned}", tex)
+        self.assertIn(r"\includegraphics", tex)
+        self.assertIn("../../../assets/a.png", tex)
+        self.assertNotIn(r"!\[diagram\]", tex)
 
     def test_same_title_is_emitted_for_separator_slide(self):
         slides = parse_roadmap("## A\none\n---\ntwo\n")
