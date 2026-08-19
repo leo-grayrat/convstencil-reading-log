@@ -22,6 +22,7 @@ namespace {
 
 constexpr int kBlockRows = 32;
 constexpr int kBaselineBlockColumns = 64;
+constexpr int kVariantBlockColumns = 56;
 constexpr int kHalo = 3;
 constexpr int kDataBlockColumns = kBaselineBlockColumns + 2 * kHalo;
 constexpr int kDataBlockRows = kBlockRows + 2 * kHalo;
@@ -30,6 +31,11 @@ constexpr int kSharedColumns = 7 * kDataBlockRows + kPadding;
 constexpr int kSharedRows = kDataBlockColumns / 8;
 constexpr int kSharedPlaneElements =
     kSharedRows * kSharedColumns + 4;
+constexpr int kNoOverlapChunkCount = 9;
+constexpr int kNoOverlapInputColumns =
+    kVariantBlockColumns + 2 * kHalo + 1;
+constexpr int kNoOverlapSharedElements =
+    kNoOverlapChunkCount * kSharedColumns + 4;
 constexpr int kUnitLength = 7;
 constexpr int kWarpCount = 8;
 constexpr int kMmaCount = 13;
@@ -42,6 +48,8 @@ constexpr int kLastInputFragmentIndex =
     (kMmaCount - 1) * 4 + 3;
 static_assert(kLastInputFragmentIndex < kSharedPlaneElements);
 static_assert(kSharedPlaneElements % 4 == 0);
+static_assert(kNoOverlapInputColumns == kNoOverlapChunkCount * kUnitLength);
+static_assert(kNoOverlapSharedElements % 4 == 0);
 
 __constant__ double device_weight_matrices[2 * kWeightRows * kTensorDimension];
 
@@ -129,6 +137,110 @@ __global__ void convstencil_baseline_kernel(
             accumulator,
             kTensorDimension,
             wmma::mem_row_major);
+    }
+}
+
+__global__ void no_overlap_variant_kernel(
+    const double* __restrict__ input,
+    double* __restrict__ output,
+    int leading_dimension) {
+    __shared__ double shared_input[kNoOverlapSharedElements];
+    __shared__ __align__(32) double output_tiles[kWarpCount][64];
+    const int begin =
+        (blockIdx.x * kBlockRows) * leading_dimension +
+        blockIdx.y * kVariantBlockColumns + 1;
+    const int thread_id = threadIdx.x;
+
+    for (int chunk = thread_id;
+         chunk < kNoOverlapChunkCount;
+         chunk += blockDim.x) {
+        shared_input[chunk * kSharedColumns + 266] = 0.0;
+        shared_input[chunk * kSharedColumns + 267] = 0.0;
+    }
+    if (thread_id == 0) {
+        shared_input[kNoOverlapChunkCount * kSharedColumns] = 0.0;
+    }
+
+#pragma unroll
+    for (int index = thread_id;
+         index < kDataBlockRows * kNoOverlapInputColumns;
+         index += blockDim.x) {
+        const int row = index / kNoOverlapInputColumns;
+        const int column = index % kNoOverlapInputColumns;
+        const int shared_index =
+            (column / kUnitLength) * kSharedColumns +
+            kUnitLength * row + column % kUnitLength;
+        shared_input[shared_index] =
+            input[begin + row * leading_dimension + column];
+    }
+    __syncthreads();
+
+    const int warp_id = threadIdx.x / 32;
+    const int lane_id = threadIdx.x % 32;
+    wmma::fragment<wmma::matrix_b, 8, 8, 4, double, wmma::row_major>
+        weight_fragments[2][kMmaCount];
+#pragma unroll
+    for (int index = 0; index < kMmaCount; ++index) {
+        wmma::load_matrix_sync(
+            weight_fragments[0][index],
+            device_weight_matrices + index * 32,
+            8);
+        wmma::load_matrix_sync(
+            weight_fragments[1][index],
+            device_weight_matrices + kWeightRows * kTensorDimension + index * 32,
+            8);
+    }
+
+    wmma::fragment<wmma::accumulator, 8, 8, 4, double> accumulator;
+    wmma::fragment<wmma::matrix_a, 8, 8, 4, double, wmma::row_major>
+        input_fragment;
+    for (int column = warp_id * 28;
+         column < warp_id * 28 + 28;
+         column += kUnitLength) {
+        wmma::fill_fragment(accumulator, 0.0);
+#pragma unroll
+        for (int compute_index = 0; compute_index < kMmaCount; ++compute_index) {
+            wmma::load_matrix_sync(
+                input_fragment,
+                shared_input + column + compute_index * 4,
+                kSharedColumns);
+            wmma::mma_sync(
+                accumulator,
+                input_fragment,
+                weight_fragments[0][compute_index],
+                accumulator);
+        }
+#pragma unroll
+        for (int compute_index = 0; compute_index < kMmaCount; ++compute_index) {
+            wmma::load_matrix_sync(
+                input_fragment,
+                shared_input + kSharedColumns + column + compute_index * 4,
+                kSharedColumns);
+            wmma::mma_sync(
+                accumulator,
+                input_fragment,
+                weight_fragments[1][compute_index],
+                accumulator);
+        }
+
+        wmma::store_matrix_sync(
+            output_tiles[warp_id],
+            accumulator,
+            kTensorDimension,
+            wmma::mem_row_major);
+        __syncwarp();
+        double* output_row =
+            output + begin +
+            (kHalo + column / kUnitLength) * leading_dimension + kHalo;
+        for (int output_column = lane_id;
+             output_column < kVariantBlockColumns;
+             output_column += 32) {
+            const int chunk = output_column / kUnitLength;
+            const int candidate = output_column % kUnitLength;
+            output_row[output_column] =
+                output_tiles[warp_id][chunk * kTensorDimension + candidate];
+        }
+        __syncwarp();
     }
 }
 
@@ -221,11 +333,14 @@ double cpu_reference_at(const std::vector<double>& input,
     return result;
 }
 
-int run_baseline_correctness(int height, int width) {
+int run_correctness(const std::string& kernel, int height, int width) {
+    const bool is_baseline = kernel == "baseline";
+    const int block_columns =
+        is_baseline ? kBaselineBlockColumns : kVariantBlockColumns;
     if (height <= 0 || width <= 0 || height % kBlockRows != 0 ||
-        width % kBaselineBlockColumns != 0) {
+        width % block_columns != 0) {
         throw std::invalid_argument(
-            "baseline dimensions must be positive multiples of 32x64");
+            "dimensions must be positive multiples of the selected block size");
     }
 
     const int rows = height + 2 * kHalo;
@@ -282,16 +397,22 @@ int run_baseline_correctness(int height, int width) {
                 weight_matrices.size() * sizeof(double)),
             "cudaMemcpyToSymbol(weights)");
 
-        const dim3 grid(height / kBlockRows, width / kBaselineBlockColumns);
-        convstencil_baseline_kernel<<<grid, 32 * kWarpCount>>>(
-            device_input,
-            device_output,
-            columns,
-            device_lookup_a,
-            device_lookup_b);
-        cuda_check(cudaGetLastError(), "convstencil_baseline_kernel launch");
-        cuda_check(
-            cudaDeviceSynchronize(), "convstencil_baseline_kernel synchronize");
+        const dim3 grid(height / kBlockRows, width / block_columns);
+        if (is_baseline) {
+            convstencil_baseline_kernel<<<grid, 32 * kWarpCount>>>(
+                device_input,
+                device_output,
+                columns,
+                device_lookup_a,
+                device_lookup_b);
+        } else {
+            no_overlap_variant_kernel<<<grid, 32 * kWarpCount>>>(
+                device_input,
+                device_output,
+                columns);
+        }
+        cuda_check(cudaGetLastError(), "correctness kernel launch");
+        cuda_check(cudaDeviceSynchronize(), "correctness kernel synchronize");
         cuda_check(
             cudaMemcpy(
                 output.data(), device_output, byte_count, cudaMemcpyDeviceToHost),
@@ -325,8 +446,9 @@ int run_baseline_correctness(int height, int width) {
 
     const bool correctness_pass = max_abs_error <= 1.0e-10;
     std::printf(
-        "{\"kernel\":\"baseline\",\"height\":%d,\"width\":%d,"
+        "{\"kernel\":\"%s\",\"height\":%d,\"width\":%d,"
         "\"correctness_pass\":%s,\"max_abs_error\":%.17g}\n",
+        kernel.c_str(),
         height,
         width,
         correctness_pass ? "true" : "false",
@@ -337,13 +459,16 @@ int run_baseline_correctness(int height, int width) {
 }  // namespace
 
 int main(int argc, char** argv) {
-    if (argc != 4 || std::string(argv[1]) != "baseline") {
-        std::fprintf(stderr, "usage: benchmark baseline HEIGHT WIDTH\n");
+    if (argc != 4 ||
+        (std::string(argv[1]) != "baseline" &&
+         std::string(argv[1]) != "variant")) {
+        std::fprintf(stderr, "usage: benchmark {baseline|variant} HEIGHT WIDTH\n");
         return 1;
     }
 
     try {
-        return run_baseline_correctness(std::stoi(argv[2]), std::stoi(argv[3]));
+        return run_correctness(
+            argv[1], std::stoi(argv[2]), std::stoi(argv[3]));
     } catch (const std::exception& error) {
         std::fprintf(stderr, "%s\n", error.what());
         return 1;

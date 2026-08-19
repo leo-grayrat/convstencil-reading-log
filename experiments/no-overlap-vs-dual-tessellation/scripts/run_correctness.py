@@ -15,7 +15,7 @@ from run_wmma_probe import environment_value, load_msvc_environment, run_and_log
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--kernel", choices=("baseline",), required=True)
+    parser.add_argument("--kernel", choices=("baseline", "variant"), required=True)
     parser.add_argument("--height", type=int, required=True)
     parser.add_argument("--width", type=int, required=True)
     parser.add_argument("--output-directory", type=Path, required=True)
@@ -116,8 +116,22 @@ def main() -> int:
             raise RuntimeError(
                 f"benchmark disassembly failed with exit code {disassembly.returncode}"
             )
+        kernel_marker = {
+            "baseline": "convstencil_baseline_kernel",
+            "variant": "no_overlap_variant_kernel",
+        }[arguments.kernel]
+        kernel_section = re.search(
+            rf"//-+ \.text\.[^\r\n]*{kernel_marker}[^\r\n]* -+"
+            rf"(?P<body>.*?)(?=//-+ \.|\Z)",
+            disassembly.stdout,
+            flags=re.DOTALL,
+        )
+        if not kernel_section:
+            raise RuntimeError(
+                f"could not find SASS section for {arguments.kernel} kernel"
+            )
         result["matrix_instruction_count"] = len(
-            re.findall(r"\bDMMA\.8x8x4\b", disassembly.stdout)
+            re.findall(r"\bDMMA\.8x8x4\b", kernel_section.group("body"))
         )
 
         if result["matrix_instruction_count"] != 26:
