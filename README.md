@@ -4,7 +4,7 @@
 
 - Issues 内有 **AI 问答全记录**，附有详实标签。
   - 其中标签为 `good first issue` 表示很重要， `enhancement` 和讨论中AI含糊其辞被我抓住分析、最终引出实验的内容有关。
-- 仓库内主要是**浓缩了个人阅读和思考精华的[自写讲义](roadmap.md)**。
+- 仓库内主要是**浓缩了个人阅读和思考精华的[自写讲义](roadmap.md)** （GitHub 阅读体验差，建议在本地使用 typora）。
   - 还有其他理解过程中 AI 生成的图片网页（多为废案），以及翻译稿（很奇怪很不正式）。
 - `experiments` 文件夹内是在 [#59](https://github.com/leo-grayrat/convstencil-reading-log/issues/59) 的启发下进行的临时实验。
   - 用于验证**个人思考得出的零冗余**是否为一条可行有效道路。
