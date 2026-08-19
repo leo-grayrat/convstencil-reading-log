@@ -106,8 +106,8 @@ class RenderTests(unittest.TestCase):
         )
         tex = render_document(slides, {"./assets/motion.webp": asset})
         self.assertIn(r"\begin{animateinline}[autoplay,loop,poster=first]{10}", tex)
-        self.assertIn(r"\makebox[0pt][l]{\includegraphics", tex)
-        self.assertEqual(tex.count("assets/f0.png"), 2)
+        self.assertNotIn(r"\makebox[0pt][l]{\includegraphics", tex)
+        self.assertEqual(tex.count("assets/f0.png"), 1)
         self.assertEqual(tex.count("assets/f1.png"), 2)
         self.assertIn(r"\newframe", tex)
 
