@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - feat/roadmap-latex-handout-export
+  pull_request:
+    branches:
+      - feat/roadmap-latex-handout-export
 
 permissions:
   contents: write
@@ -23,7 +26,14 @@ jobs:
           sudo apt-get install -y --no-install-recommends texlive-xetex texlive-lang-chinese texlive-latex-extra texlive-fonts-recommended
       - name: Build PDF
         run: python tools/export_handout.py roadmap.md
-      - name: Commit PDF
+      - name: Upload PDF
+        uses: actions/upload-artifact@v4
+        with:
+          name: ConvStencil-Reading-Handout
+          path: build/handout/ConvStencil-Reading-Handout.pdf
+          if-no-files-found: error
+      - name: Commit PDF on branch builds
+        if: github.event_name == 'push'
         run: |
           mkdir -p presentation/generated
           cp build/handout/ConvStencil-Reading-Handout.pdf presentation/generated/ConvStencil-Reading-Handout.pdf
