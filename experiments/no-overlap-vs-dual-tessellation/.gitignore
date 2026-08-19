@@ -7,3 +7,5 @@ build/
 *.ncu-rep
 results/latest/
 tests/.tmp/
+__pycache__/
+*.pyc
