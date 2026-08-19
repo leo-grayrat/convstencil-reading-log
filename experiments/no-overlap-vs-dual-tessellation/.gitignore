@@ -6,3 +6,4 @@ build/
 *.pdb
 *.ncu-rep
 results/latest/
+tests/.tmp/
