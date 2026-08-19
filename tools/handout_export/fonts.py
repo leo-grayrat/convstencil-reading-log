@@ -2,26 +2,14 @@ from __future__ import annotations
 
 
 FONT_SETUP = r"""
-% Latin: exact TeX Gyre Termes OpenType files distributed with TeX Live.
-% Using file names avoids depending on the host fontconfig database while
-% keeping XeLaTeX/fontspec on its native OpenType path.
-\IfFontExistsTF{texgyretermes-regular.otf}{}{%
-  \PackageError{handout-fonts}{Missing font: TeX Gyre Termes Regular}{Install the TeX Gyre font collection.}%
+% Latin: TeX Gyre Termes, loaded through fontconfig/fontspec by family name.
+% This works with the standard fonts-texgyre package and keeps the exact
+% requested Termes family for regular/bold/italic faces.
+\IfFontExistsTF{TeX Gyre Termes}{}{%
+  \PackageError{handout-fonts}{Missing font: TeX Gyre Termes}{Install the TeX Gyre font collection.}%
 }
-\IfFontExistsTF{texgyretermes-bold.otf}{}{%
-  \PackageError{handout-fonts}{Missing font: TeX Gyre Termes Bold}{Install the TeX Gyre font collection.}%
-}
-\IfFontExistsTF{texgyretermes-italic.otf}{}{%
-  \PackageError{handout-fonts}{Missing font: TeX Gyre Termes Italic}{Install the TeX Gyre font collection.}%
-}
-\IfFontExistsTF{texgyretermes-bolditalic.otf}{}{%
-  \PackageError{handout-fonts}{Missing font: TeX Gyre Termes Bold Italic}{Install the TeX Gyre font collection.}%
-}
-\setmainfont[
-  BoldFont=texgyretermes-bold.otf,
-  ItalicFont=texgyretermes-italic.otf,
-  BoldItalicFont=texgyretermes-bolditalic.otf
-]{texgyretermes-regular.otf}
+\setmainfont{TeX Gyre Termes}
+\setsansfont{TeX Gyre Termes}
 
 % CJK: exact Fandol OpenType files distributed with TeX Live.
 \IfFontExistsTF{FandolSong-Regular.otf}{}{%
@@ -39,7 +27,6 @@ FONT_SETUP = r"""
 \setCJKmainfont[BoldFont=FandolSong-Bold.otf]{FandolSong-Regular.otf}
 \xeCJKsetup{CJKmath=true}
 \newCJKfontfamily\handoutkai[BoldFont=FandolSong-Bold.otf]{FandolKai-Regular.otf}
-\newfontfamily\handoutclosinglatin[BoldFont=FandolSong-Bold.otf]{FandolKai-Regular.otf}
 \newCJKfontfamily\handoutfang{FandolFang-Regular.otf}
 """.strip()
 
