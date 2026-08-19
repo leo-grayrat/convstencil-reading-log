@@ -1,0 +1,33 @@
+name: Handout export check
+
+on:
+  push:
+    branches:
+      - feat/roadmap-latex-handout-export
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install Python dependency
+        run: python -m pip install -r requirements-handout.txt
+      - name: Install XeLaTeX and fonts
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            texlive-xetex \
+            texlive-lang-chinese \
+            texlive-latex-extra \
+            texlive-fonts-recommended
+      - name: Run unit tests
+        run: python -m unittest discover -s tests -p 'test_handout_*.py' -v
+      - name: Generate TeX from current roadmap
+        run: python tools/export_handout.py roadmap.md --tex-only
+      - name: Compile current roadmap PDF
+        run: python tools/export_handout.py roadmap.md
+      - name: Show build products
+        run: find build/handout -maxdepth 2 -type f -printf '%p %k KB\n' | sort
