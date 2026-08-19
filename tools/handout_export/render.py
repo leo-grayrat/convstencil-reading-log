@@ -98,19 +98,9 @@ def _render_image(path_text: str, prepared_assets: dict[str, Any] | None) -> str
         )
         if idx != len(sequence) - 1:
             frame_tex.append(r"\newframe")
-    poster = _asset_field(asset, "poster_path", None) or (sequence[0] if sequence else None)
-    poster_tex = ""
-    if poster:
-        poster_tex = (
-            r"\makebox[0pt][l]{\includegraphics[width=.92\textwidth,height=.58\textheight,keepaspectratio]{"
-            + _latex_file_arg(str(poster))
-            + r"}}"
-            + "\n"
-        )
     return (
         r"\begin{center}"
         + "\n"
-        + poster_tex
         + rf"\begin{{animateinline}}[autoplay,loop,poster=first]{{{fps:g}}}"
         + "\n"
         + "\n".join(frame_tex)
@@ -206,11 +196,34 @@ def _render_quote(lines: list[str]) -> str:
     return rf"\begin{{{env}}}" + "\n" + rendered + "\n" + rf"\end{{{env}}}"
 
 
+def _render_fence(lines: list[str], start: int) -> tuple[str, int]:
+    opening = _FENCE_RE.match(lines[start])
+    assert opening is not None
+    token = opening.group(1)
+    code: list[str] = []
+    i = start + 1
+    while i < len(lines) and not lines[i].lstrip().startswith(token[0] * len(token)):
+        code.append(lines[i].lstrip() if lines[start].startswith((" ", "\t")) else lines[i])
+        i += 1
+    if i < len(lines):
+        i += 1
+    return (
+        r"\begin{Verbatim}[fontsize=\small]"
+        + "\n"
+        + "\n".join(code)
+        + "\n"
+        + r"\end{Verbatim}",
+        i,
+    )
+
+
 def _list_kind(marker: str) -> str:
     return "itemize" if marker[0] in "-+*" else "enumerate"
 
 
-def _render_list(lines: list[str], start: int) -> tuple[str, int]:
+def _render_list(
+    lines: list[str], start: int, prepared_assets: dict[str, Any] | None
+) -> tuple[str, int]:
     out: list[str] = []
     stack: list[tuple[int, str]] = []
     i = start
@@ -255,7 +268,10 @@ def _render_list(lines: list[str], start: int) -> tuple[str, int]:
 
         stripped = line.lstrip()
         indent = len(line) - len(stripped)
-        if stack and indent > stack[-1][0] and stripped.startswith(">"):
+        if not stack or indent <= stack[-1][0]:
+            break
+
+        if stripped.startswith(">"):
             quote_lines = [line]
             i += 1
             while i < len(lines):
@@ -270,11 +286,30 @@ def _render_list(lines: list[str], start: int) -> tuple[str, int]:
             out.append(_render_quote(quote_lines))
             continue
 
-        if stack and indent > stack[-1][0]:
-            out.append(render_inline(stripped))
+        if _FENCE_RE.match(line):
+            rendered, i = _render_fence(lines, i)
+            out.append(rendered)
+            continue
+
+        if "$$" in line:
+            math_lines = [line]
+            delim_count = line.count("$$")
+            i += 1
+            while delim_count % 2 == 1 and i < len(lines):
+                math_lines.append(lines[i])
+                delim_count += lines[i].count("$$")
+                i += 1
+            out.append(_render_display_math([x.lstrip() for x in math_lines]))
+            continue
+
+        image = _IMAGE_RE.match(line)
+        if image:
+            out.append(_render_image(image.group(1).strip(), prepared_assets))
             i += 1
             continue
-        break
+
+        out.append(render_inline(stripped))
+        i += 1
 
     while stack:
         _, env = stack.pop()
@@ -303,19 +338,9 @@ def _render_lines(lines: list[str], prepared_assets: dict[str, Any] | None) -> s
             i += 1
             continue
 
-        fence = _FENCE_RE.match(line)
-        if fence:
-            token = fence.group(1)
-            code: list[str] = []
-            i += 1
-            while i < len(lines) and not lines[i].lstrip().startswith(token[0] * len(token)):
-                code.append(lines[i])
-                i += 1
-            if i < len(lines):
-                i += 1
-            out.append(r"\begin{Verbatim}[fontsize=\small]")
-            out.extend(code)
-            out.append(r"\end{Verbatim}")
+        if _FENCE_RE.match(line):
+            rendered, i = _render_fence(lines, i)
+            out.append(rendered)
             continue
 
         if "$$" in line:
@@ -345,7 +370,7 @@ def _render_lines(lines: list[str], prepared_assets: dict[str, Any] | None) -> s
             continue
 
         if _LIST_RE.match(line):
-            rendered, i = _render_list(lines, i)
+            rendered, i = _render_list(lines, i, prepared_assets)
             out.append(rendered)
             continue
 
