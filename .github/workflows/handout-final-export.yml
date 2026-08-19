@@ -5,6 +5,9 @@ on:
     branches:
       - feat/roadmap-latex-handout-export
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -13,32 +16,19 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Install Python dependency
-        run: python -m pip install -r requirements-handout.txt
-      - name: Install XeLaTeX and fonts
+      - run: python -m pip install -r requirements-handout.txt
+      - name: Install XeLaTeX
         run: |
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends \
-            texlive-xetex \
-            texlive-lang-chinese \
-            texlive-latex-extra \
-            texlive-fonts-recommended \
-            poppler-utils
-      - name: Build final handout
+          sudo apt-get install -y --no-install-recommends texlive-xetex texlive-lang-chinese texlive-latex-extra texlive-fonts-recommended
+      - name: Build PDF
         run: python tools/export_handout.py roadmap.md
-      - name: Render first-pass PDF diagnostics
+      - name: Commit PDF
         run: |
-          mkdir -p build/handout/rendered
-          pdftoppm -png -r 120 build/handout/ConvStencil-Reading-Handout.pdf build/handout/rendered/page
-          pdfinfo build/handout/ConvStencil-Reading-Handout.pdf > build/handout/pdfinfo.txt
-      - name: Upload handout artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: ConvStencil-Reading-Handout
-          path: |
-            build/handout/ConvStencil-Reading-Handout.pdf
-            build/handout/handout.tex
-            build/handout/handout.log
-            build/handout/pdfinfo.txt
-            build/handout/rendered/*.png
-          if-no-files-found: error
+          mkdir -p presentation/generated
+          cp build/handout/ConvStencil-Reading-Handout.pdf presentation/generated/ConvStencil-Reading-Handout.pdf
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add presentation/generated/ConvStencil-Reading-Handout.pdf
+          git commit -m 'build: export final ConvStencil handout' || exit 0
+          git push
