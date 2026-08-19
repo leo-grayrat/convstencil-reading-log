@@ -12,7 +12,16 @@ _LATEX_ESCAPES = {
     "}": r"\}",
     "~": r"\textasciitilde{}",
     "^": r"\textasciicircum{}",
+    "−": r"\ensuremath{-}",
+    "→": r"\ensuremath{\rightarrow}",
+    "⇒": r"\ensuremath{\Rightarrow}",
+    "×": r"\ensuremath{\times}",
     "✕": r"\handoutcrossmark{}",
+    "△": r"\ensuremath{\triangle}",
+    "□": r"\ensuremath{\square}",
+    "≤": r"\ensuremath{\le}",
+    "≥": r"\ensuremath{\ge}",
+    "≠": r"\ensuremath{\ne}",
 }
 
 
@@ -24,7 +33,8 @@ def render_inline(text: str) -> str:
     """Render a deliberately small Markdown inline subset.
 
     Math spans are copied byte-for-byte (as Python text) so existing LaTeX is
-    not reinterpreted. Outside math/code, plain text is escaped for LaTeX.
+    not reinterpreted. Outside math/code, plain text is escaped for LaTeX and a
+    few Unicode math-like symbols are mapped to stable LaTeX equivalents.
     """
 
     out: list[str] = []
