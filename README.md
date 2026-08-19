@@ -18,4 +18,21 @@
 - `artifacts/`：网页验证截图等中间产物
 - `tools/`：为验证网页而生成的小工具/测试脚本
 
+## 导出阅读讲义
+
+`roadmap.md` 可通过仓库内的导出工具生成 XeLaTeX Beamer PDF：
+
+```bash
+python -m pip install -r requirements-handout.txt
+python tools/export_handout.py roadmap.md
+```
+
+默认输出到 `build/handout/ConvStencil-Reading-Handout.pdf`。如果只想检查 Markdown 解析、图片准备和生成的 LaTeX，而不调用 XeLaTeX：
+
+```bash
+python tools/export_handout.py roadmap.md --tex-only
+```
+
+完整 PDF 构建需要 XeLaTeX、Beamer、`animate` 以及 TeX Live 中的 Fandol / TeX Gyre Termes 字体。Animated WebP 会拆帧后嵌入 PDF 动画，同时保留首帧作为静态后备；动画能否播放取决于 PDF 阅读器，不支持动画时仍可看到首帧。
+
 > 本仓库是私人论文阅读记录，不作为论文或相关材料的公开再发布渠道。
