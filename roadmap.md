@@ -1030,7 +1030,6 @@ a & 0 & 0 & 0 \\
 b & a & 0 & 0 \\
 c & b & a & 0
 \end{bmatrix}
-
 {\color{blue}W_{B1}} = 
 \begin{bmatrix}
 0 & c & b & a \\
@@ -1051,9 +1050,7 @@ $$
 \end{bmatrix}
 \begin{bmatrix}
 W_{A1}\\ W_{B1}
-\end{bmatrix}
-
-=
+\end{bmatrix}=
 \begin{bmatrix}
 \color{red}1&\color{red}2&\color{red}3&\color{blue}4&\color{blue}5&\color{blue}6
 \end{bmatrix}
