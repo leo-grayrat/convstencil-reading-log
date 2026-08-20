@@ -5,6 +5,7 @@
 这种运算在自然科学中十分常用，流体动力学、地球建模、天气模拟都常见。
 
 如热传导：
+
 $$
 \begin{matrix}
 冷\;冷\;冷\\
@@ -48,10 +49,12 @@ $$
 则有
 
 $$
+\begin{align}
 1处: r_1=1a+2b+3c\\
 2处: r_2=2a+3b+4c\\
 3处: r_3=3a+4b+5c\\
 4处: r_4=4a+5b+6c
+\end{align}
 $$
 
 但是单纯算这样朴素乘加并不合适，我们有很多矩阵计算的硬件，能不能把这种计算化成**矩阵乘法**呢？反正都是 $\sum a_ib_i$ 乘加的形式~
@@ -61,6 +64,7 @@ $$
 ## 方法一
 
 让我们对齐一下：
+
 $$
 \begin{align}
 1处: r_1=1a+2b + \textcolor{red}{3}&c\\
@@ -69,9 +73,11 @@ $$
 4处: r&_4=\textcolor{red}{4}a+5b+6c\\
 \end{align}
 $$
+
 可以发现，随着 stencil 在原数据上滑动，相对于原数据来看，权重也在滑动，只是错了一位而已。
 
 把权重按照滑动的方式排列成一个矩阵，乘上 $\mathbf a$ ：
+
 $$
 \begin{bmatrix}
 a&b&c&0&0&0\\
@@ -87,26 +93,29 @@ a&b&c&0&0&0\\
 5\\
 6
 \end{bmatrix}
-=
-\begin{bmatrix}
+=\begin{bmatrix}
 1a+2b+3c\\
 2a+3b+4c\\
 3a+4b+5c\\
 4a+5b+6c
 \end{bmatrix}
 $$
+
 这种方法中重复排列的是**权重**。
 
 ## 方法二
 
 更简单的方法是把每个滑动窗口都抄下来。
+
 $$
 1处: r_1=1\textcolor{red}{a}+2\textcolor{red}{b}+3\textcolor{red}{c}\\
 2处: r_2=2\textcolor{red}{a}+3\textcolor{red}{b}+4\textcolor{red}{c}\\
 3处: r_3=3\textcolor{red}{a}+4\textcolor{red}{b}+5\textcolor{red}{c}\\
 4处: r_4=4\textcolor{red}{a}+5\textcolor{red}{b}+6\textcolor{red}{c}
 $$
+
 显然，**权重**都是统一的。我们可以把权重**提取出来**作为一个向量：
+
 $$
 \mathbf r=\left[ 
 \begin{matrix}
@@ -131,8 +140,7 @@ r_4
 \textcolor{red}{c}
 \end{matrix}
 \right]
-=
-\left[ 
+=\left[ 
 \begin{matrix}
 1\textcolor{red}{a}+2\textcolor{red}{b}+3\textcolor{red}{c}\\
 2\textcolor{red}{a}+3\textcolor{red}{b}+4\textcolor{red}{c}\\
@@ -141,11 +149,13 @@ r_4
 \end{matrix}
 \right]
 $$
+
 这种方法中重复排列的是**数据**。
 
 ## 推广到二维
 
 如 $3\cross3$ stencil：
+
 $$
 \begin{bmatrix}
 a & b & c \\
@@ -153,9 +163,11 @@ d & e & f \\
 g & h & i
 \end{bmatrix}
 $$
+
 只是把向量换成了二维矩阵而已，运算还是各元素和数据元素乘加。
 
 如在 $(p,q)$ 处的 stencil 计算结果：
+
 $$
 y_{p,q} = 
 \begin{aligned}[t]
@@ -168,6 +180,7 @@ $$
 ---
 
 以此 $3\cross5$ 矩阵为数据来说明。
+
 $$
 \begin{bmatrix}
 1 & 2 & 3 & 4 & 5 \\
@@ -175,7 +188,9 @@ $$
 11 & 12 & 13 & 14 & 15
 \end{bmatrix}
 $$
+
 从一维的小向量的移动，变成了小矩阵的移动。
+
 $$
 X_{0,0} = \begin{bmatrix}
 1 & 2 & 3 \\
@@ -208,6 +223,7 @@ $$
 二维 stencil 的每一行实际上就是**一个一维 stencil** ！
 
 如第一行：
+
 $$
 \begin{pmatrix}
 1 & 2 & 3 & 4 & 5 
@@ -217,7 +233,9 @@ $$
 a&b&c
 \end{pmatrix}
 $$
+
 对应 stencil 窗口矩阵中的第一行。
+
 $$
 X_{0,0} = \begin{bmatrix}
 \textcolor{red}{1} & \textcolor{red}{2} & \textcolor{red}{3} \\
@@ -235,13 +253,13 @@ X_{0,2} = \begin{bmatrix}
 13 & 14 & 15
 \end{bmatrix}
 $$
+
 既然如此，分行计算一维 stencil 的和、累加起来即可。
 
 ## 方法二
 
 $$
 y_{p,q} = 
-
  a x_{p-1,q-1} + b x_{p-1,q} + c x_{p-1,q+1} 
  + \dots 
  + g x_{p+1,q-1} + h x_{p+1,q} + i x_{p+1,q+1}
@@ -250,6 +268,7 @@ $$
 就算是二维，还是一样的乘加结构，只是变成 $k^2$ 个数了。
 
 这种方法对每个维度都比较简单——把所有可能的滑动窗口里面数据一个个抄下来就可以了，不管这个窗口是几维度。
+
 $$
 X_{0,0} = \begin{bmatrix}
 {1} & {2} & {3} \\
@@ -267,7 +286,9 @@ X_{0,2} = \begin{bmatrix}
 13 & 14 & 15
 \end{bmatrix}
 $$
+
 直接展开**摊平为向量**，记录下所有元素。
+
 $$
 \begin{align}
 \mathbf x&_{(0,0)}=(1,2,3,6,7,8,11,12,13)\\
@@ -275,13 +296,17 @@ $$
 \mathbf x&_{(0,2)}=(3,4,5,8,9,10,13,14,15)
 \end{align}
 $$
+
 然后把权重向量也摊平为向量。
+
 $$
 \mathbf w = \begin{pmatrix}
 a & b &c &\dots&h&i
 \end{pmatrix}
 $$
+
 然后向量合并为矩阵：
+
 $$
 \begin{bmatrix}
 \mathbf x_{(0,0)} \\
@@ -289,8 +314,7 @@ $$
 \mathbf x_{(0,2)}
 \end{bmatrix}
 \mathbf w^\top
-=
-\begin{bmatrix}
+=\begin{bmatrix}
 1 & 2 & 3 & 6 & 7 & 8 & 11 & 12 & 13 \\
 2 & 3 & 4 & 7 & 8 & 9 & 12 & 13 & 14 \\
 3 & 4 & 5 & 8 & 9 & 10 & 13 & 14 & 15
@@ -303,8 +327,7 @@ c\\
 h\\
 i
 \end{bmatrix}
-=
-\begin{bmatrix}
+=\begin{bmatrix}
 1a+2b+3c\dots\\
 2a+3b+4c\dots\\
 3a+4b+5c\dots
@@ -367,6 +390,7 @@ im2row 显式展开了大量彼此重叠的窗口，而这些重复内容可以�
 ## 从方法二出发
 
 一块 $3\cross6$ 数据：
+
 $$
 D=\begin{bmatrix}
 1 & 2 & 3 & 4 & 5 & 6 \\
@@ -374,7 +398,9 @@ D=\begin{bmatrix}
 13 & 14 & 15 & 16 & 17 & 18
 \end{bmatrix}
 $$
+
 有四个滑动窗口：
+
 $$
 X_0 =
 \begin{bmatrix}
@@ -404,6 +430,7 @@ X_3 =
 16 & 17 & 18
 \end{bmatrix}
 $$
+
 如果再把这些展开然后写四遍，那确实有相当相当多的重复信息。
 
 怎么办呢？
@@ -443,6 +470,7 @@ $$
 观察即可发现，中间两个矩阵里的信息在左右两个矩阵中都出现了。
 
 换言之，我们可以直接把原矩阵信息**切分**成若干块，从而达到信息零冗余。剩余两个矩阵的元素都可以从 $A\;B$ 中得到，
+
 $$
 D=
 
@@ -464,6 +492,7 @@ B =
 16 & 17 & 18
 \end{bmatrix}
 $$
+
 听起来很好，但是怎么算呢？
 
 ---
@@ -509,6 +538,7 @@ $$
 $$
 
 先看第一行的部分：
+
 $$
 \begin{align}
 
@@ -544,9 +574,11 @@ $$
 
 \end{align}
 $$
+
 由于这种滑动窗口结构，所以事实上出现了 $AAA\to AAB\to ABB\to BBB$ 的样式。
 
 因此， $\mathbf a$ 和 $\mathbf b$ 对应的计算结果中的项在其他窗口 stencil 计算结果中也有出现！
+
 $$
 \begin{align}
 r_0=\textcolor{red}1a+\textcolor{red}2b + \textcolor{red}{3}&c\\
@@ -585,9 +617,11 @@ c & b & a & 0
 $$
 
 把上面的线性变换的系数向量部分写成矩阵，然后就可以得到：
+
 $$
 \mathbf aW_{A1}+\mathbf b W_{B1}=\mathbf r_1
 $$
+
 很特别的是，这样构造出来的 A B 权重矩阵都是**三角矩阵**。这也是窗口滑动的体现之一。
 
 如果把多行的结果放到一起，就会是这样：
@@ -633,6 +667,7 @@ $$
 ## 但是……
 
 如果这样分割 A B 矩阵：
+
 $$
 \begin{align}
 
@@ -668,9 +703,11 @@ $$
 
 \end{align}
 $$
+
 假设这里后续还有数据，那么就需要延续这样分块，交换一下 a b 的位置，让旧 b 变为新 a ，接着计算。新的一块理应是 $7\;8\;9$ 。
 
 让我们 copy 一下：
+
 $$
 \begin{align}
 
@@ -706,6 +743,7 @@ $$
 
 \end{align}
 $$
+
 有没有发现不对劲？
 
 ## 植树问题
@@ -757,6 +795,7 @@ B：
 我们忽略一开始的 K + 1 个数据（这种计算一般有非常长的数据，开头一点不重要），只看其中的一段，会发现 B 在前面的前 K 个，A 在后 K 个，共存了 2K 的数据，但实际上长度只有 K + 1 。
 
 所以：
+
 $$
 \dfrac{数据量}{原始输入}=\dfrac{2k}{k+1}
 $$
@@ -780,6 +819,7 @@ B：
 ```
 
 首先需要牢记住 $k+1$ 个数据为一个循环。
+
 $$
 Y = \text{stencil2row}_A(X) =
 \begin{bmatrix}
@@ -807,15 +847,19 @@ $$
 1. 左边一次有 **8 组**长度为 4 的数，右边一次也有 **8 组**长度为 4 的数。两边两两配对，同时得到 64 个结果。
 
 2. 每一个结果，本质上都是一个点积；而这一轮里这个点积最多只能算
+   
    $$
    \sum_{i=1}^{4} a_i b_i
    $$
+   
    也就是 **4 对乘加**。
 
 所以自然就是：
+
 $$
 (8\times4)\times(4\times8)\rightarrow(8\times8)
 $$
+
 其中：
 
 - `8×4`：8 个长度为 4 的左向量；
@@ -927,6 +971,7 @@ $$
 论文之外，笔者有了一些新发现。
 
 还记得之前提到的方法一吗？也就是**滑动权重**。让我们把矩阵画出来：
+
 $$
 \begin{bmatrix}
 a&b&c&0&0&0\\
@@ -942,15 +987,16 @@ a&b&c&0&0&0\\
 5\\
 6
 \end{bmatrix}
-=
-\begin{bmatrix}
+=\begin{bmatrix}
 1a+2b+3c\\
 2a+3b+4c\\
 3a+4b+5c\\
 4a+5b+6c
 \end{bmatrix}
 $$
+
 Hmm... 转置一下；
+
 $$
 \begin{bmatrix}
 1&2&3&4&5&6
@@ -963,8 +1009,7 @@ c&b&a&0\\
 0&0&c&b\\
 0&0&0&c
 \end{bmatrix}
-=
-\left(
+=\left(
 \begin{bmatrix}
 1a+2b+3c\\
 2a+3b+4c\\
@@ -973,6 +1018,7 @@ c&b&a&0\\
 \end{bmatrix}
 \right)^T
 $$
+
 嗯？怎么有点熟悉？
 
 ---
@@ -997,6 +1043,7 @@ $$
 还记得当初一行情况里的 AB 矩阵吗？
 
 我们使用一下分块矩阵运算，把下面这个式子合并一下：
+
 $$
 \mathbf r_1=
 \begin{bmatrix}
@@ -1019,6 +1066,7 @@ W_{A1}\\ W_{B1}
 0&0&0&\color{blue}c
 \end{bmatrix}
 $$
+
 嗯？
 
 ---
@@ -1079,13 +1127,17 @@ $$
 计算后结果更吸引人。就以论文中 $k=7$ 为例。
 
 这种新新方法的额外计算比例：
+
 $$
 \frac{k+1}k=\frac87\sim1.143
 $$
+
 论文方法存储冗余比例：
+
 $$
 \frac{2k}{k+1}=\frac74=1.750
 $$
+
 而且当 k 很大时，**前者趋近1、后者趋近2**，越来越让人激动了！
 
 当然，这本质是两件事，这里比例差距大并不代表着真的就能完美抗衡……
